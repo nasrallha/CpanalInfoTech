@@ -261,7 +261,8 @@ async function inspectOrThrow(file, mustHave) {
 // ------------------------------------------------------------
 // استرجاع قاعدة شركة (من نسخها في فولدرها: نسخ اللوحة أو ملف مرفوع)
 // 1) نسخة أمان من الوضع الحالي (before_restore_...) ← لو الاسترجاع فشل بترجع لوحدها
-// 2) جداول الاشتراك ما تتلمسش (اللوحة هي اللي بتكتبها)
+// 2) جداول الاشتراك ما تتلمسش (اللوحة هي اللي بتكتبها) - لو موجودة في القاعدة
+//    (قاعدة فاضية: بتتعمل من النسخة، وبعدين اللوحة بتكتب الاشتراك)
 // 3) النسخة أقدم من البرنامج: التحديثات الناقصة بتتعمل تلقائياً، وأحدث: مرفوضة
 // 4) سلسلة الزكاة (ICV) ما ترجعش لورا (نفس الشهادة)
 // 5) كل مستخدمي الشركة يخرجوا + مزامنة بيانات اللوحة للشركة
@@ -277,6 +278,23 @@ async function query(cfg, sql, params) {
     return await conn.query(sql, params);
   } finally {
     await conn.end().catch(() => {});
+  }
+}
+
+// جداول الاشتراك اللي موجودة فعلاً في القاعدة دي (هي بس اللي ما تتلمسش)
+// قاعدة فاضية (سيرفر جديد): مفيش جداول اشتراك ← بتتعمل من النسخة،
+// وإلا التحديثات اللي بتعدّل عليها بتفشل (Table 'subscription' doesn't exist)
+// وبيانات الاشتراك نفسها بتتكتب من اللوحة بعد الاسترجاع (trySync)
+async function keepTablesIn(cfg) {
+  try {
+    const rows = await query(
+      cfg,
+      "SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME IN (?, ?)",
+      [cfg.database, ...COMPANY_KEEP],
+    );
+    return rows.map((r) => r.t);
+  } catch {
+    return COMPANY_KEEP;
   }
 }
 
@@ -325,6 +343,7 @@ export async function restoreCompany({ id, name, confirm }, user) {
     const base = panelCfg();
     const cfg = { ...base, database: c.dbName };
     const chainsBefore = await zatcaChains(cfg);
+    const keepTables = await keepTablesIn(cfg);
 
     // 1) نسخة أمان
     const dir = path.join(backupRoot(), c.code);
@@ -334,12 +353,12 @@ export async function restoreCompany({ id, name, confirm }, user) {
 
     // 2) التنفيذ (ولو فشل: نرجّع نسخة الأمان)
     try {
-      await executeBackup(file, info, cfg, COMPANY_KEEP);
+      await executeBackup(file, info, cfg, keepTables);
     } catch (error) {
       console.error("[restore] failed, rolling back:", error?.message ?? error);
       try {
         const sf = path.join(dir, safety);
-        await executeBackup(sf, await inspectBackup(sf), cfg, COMPANY_KEEP);
+        await executeBackup(sf, await inspectBackup(sf), cfg, keepTables);
       } catch (e2) {
         console.error("[restore] ROLLBACK FAILED:", e2?.message ?? e2);
         throw new AppError("RestoreRollbackFailed", { safety });
