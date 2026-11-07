@@ -1,0 +1,402 @@
+// ============================================================
+// قاعدة بيانات لوحة التحكم (infotech_cpanel)
+// - موظفينك (الدعم الفني) وصلاحياتهم
+// - الشركات (العملاء): الكود، قاعدة بياناتها، الباقة، الاشتراك
+// - البيانات نفسها بتاعة كل شركة (فواتير ومخزون...) في قاعدتها هي، مش هنا
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+// رابط قاعدة البيانات في prisma.config.ts (من DATABASE_URL في .env)
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================
+// الموظفين (فريقك) والأدوار والجلسات
+// ============================================================
+
+model StaffRole {
+  id          Int      @id @default(autoincrement())
+  arName      String   @unique @db.VarChar(80)
+  enName      String   @unique @db.VarChar(80)
+  // قائمة مفاتيح الصلاحيات: ["companies.view", "companies.create", ...] (lib/permissions.js)
+  permissions Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff Staff[]
+
+  @@map("staff_roles")
+}
+
+model Staff {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique @db.VarChar(50)
+  arName       String    @db.VarChar(100)
+  enName       String    @db.VarChar(100)
+  phone        String?   @db.VarChar(30)
+  email        String?   @db.VarChar(150)
+  passwordHash String    @db.VarChar(255)
+  // صاحب اللوحة: كل الصلاحيات (منها إدارة الموظفين)، ومينفعش يتمسح أو يتوقف
+  isOwner      Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  roleId       Int?
+  role         StaffRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions         StaffSession[]
+  companiesCreated Company[]             @relation("CompanyCreatedBy")
+  history          SubscriptionHistory[]
+  audits           AuditLog[]
+  supportTokens    SupportToken[]
+
+  @@index([roleId])
+  @@map("staff")
+}
+
+model StaffSession {
+  id         Int      @id @default(autoincrement())
+  tokenHash  String   @unique @db.VarChar(64)
+  staffId    Int
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  ip         String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([staffId])
+  @@map("staff_sessions")
+}
+
+// ============================================================
+// الباقات والأنشطة
+// ============================================================
+
+model Plan {
+  id               Int      @id @default(autoincrement())
+  arName           String   @unique @db.VarChar(80)
+  enName           String   @unique @db.VarChar(80)
+  price            Decimal  @default(0) @db.Decimal(12, 2)
+  // month | year
+  period           String   @default("year") @db.VarChar(10)
+  // الحدود: null = من غير حد
+  maxUsers         Int?
+  maxBranches      Int?
+  maxInvoicesMonth Int?
+  maxProducts      Int?
+  // المميزات المتاحة: ["zatca", "promotions", "scale", ...] (lib/plan-features.js)
+  features         Json
+  notes            String?  @db.VarChar(500)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companies Company[]
+  history   SubscriptionHistory[]
+
+  @@map("plans")
+}
+
+// نشاط الشركة (تجزئة، ورشة، سباكة وكهرباء...): شكل شاشة الدخول ومستقبلاً الشاشات المتاحة
+model Activity {
+  id         Int      @id @default(autoincrement())
+  arName     String   @unique @db.VarChar(80)
+  enName     String   @unique @db.VarChar(80)
+  // لون أو صورة خلفية شاشة الدخول
+  color      String?  @db.VarChar(20)
+  background String?  @db.VarChar(500)
+  // وحدات النشاط في البرنامج الأساسي (مفاتيح من lib/module-catalog.js هناك)
+  modules    Json?
+  // اسم مقدم الخدمة في البرنامج (وحدة الفنيين): technician | staff | barber | therapist
+  staffTitle String?  @db.VarChar(12)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  companies Company[]
+
+  @@map("activities")
+}
+
+// ============================================================
+// الشركات (العملاء)
+// - id: رقم داخلي لقاعدة البيانات (مبيرجعش لورا حتى لو اتحذفت شركات)
+// - serialNo: رقم العميل اللي بيظهر في اللوحة (1، 2، 3...)
+// - code: كود عشوائي (8 حروف) بيظهر للعميل في اللينك وشاشة الدخول
+//   مستحيل يتخمّن، ومش بيكشف عدد العملاء
+// ============================================================
+
+model Company {
+  id          Int       @id @default(autoincrement())
+  // رقم العميل (1، 2، 3...): الرقم اللي بيظهر في اللوحة، مستقل عن id
+  // الجديد = أكبر رقم موجود + 1 (لو اتحذفت كل الشركات يبدأ من 1 تاني)
+  serialNo    Int       @unique
+  code        String    @unique @db.VarChar(16)
+  arName      String    @db.VarChar(150)
+  enName      String    @db.VarChar(150)
+  activityId  Int?
+  activity    Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  // التواصل
+  contactName String?   @db.VarChar(100)
+  phone       String?   @db.VarChar(30)
+  email       String?   @db.VarChar(150)
+  city        String?   @db.VarChar(80)
+  taxNo       String?   @db.VarChar(20)
+  // رقم المنشأة: CRN سجل تجاري | 700 الرقم الموحد | NAT هوية وطنية | IQA إقامة | OTH أخرى
+  idType      String?   @db.VarChar(5)
+  idNumber    String?   @db.VarChar(30)
+  // العنوان الوطني (المدينة فوق)
+  district     String?  @db.VarChar(100)
+  street       String?  @db.VarChar(100)
+  buildingNo   String?  @db.VarChar(4)
+  additionalNo String?  @db.VarChar(4)
+  postalCode   String?  @db.VarChar(5)
+  notes       String?   @db.Text
+  logo        String?   @db.VarChar(500)
+
+  // pending (لسه قاعدتها متعملتش) | active | suspended | cancelled
+  status        String    @default("pending") @db.VarChar(20)
+  suspendReason String?   @db.VarChar(255)
+  suspendedAt   DateTime?
+
+  // قاعدة البيانات (اسمها مايتغيّرش بعد الإنشاء)
+  dbName        String    @unique @db.VarChar(64)
+  dbUser        String    @db.VarChar(32)
+  dbPasswordEnc String    @db.Text
+  provisionedAt DateTime?
+
+  // مدير النظام بتاع الشركة (بيتعمل جوه قاعدتها)
+  // الباسورد المؤقت متشفّر لحد ما القاعدة تتعمل، وبعدها بيتمسح
+  adminUsername    String  @db.VarChar(50)
+  adminPasswordEnc String? @db.Text
+
+  // الباقة والحدود (الحدود هنا لو اتكتبت بتغلب على حدود الباقة)
+  planId           Int?
+  plan             Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
+  maxUsers         Int?
+  maxBranches      Int?
+  maxInvoicesMonth Int?
+  maxProducts      Int?
+
+  // استثناءات المميزات للشركة دي على باقتها: { "zatca": "off", "purchases": "on" }
+  // (المفتاح مش موجود = حسب الباقة)
+  featureOverrides Json?
+  // استثناءات وحدات النشاط: { key: "on" | "off" } (المش موجود = حسب النشاط)
+  moduleOverrides  Json?
+
+  // الاشتراك (تواريخ بالأيام)
+  startsAt     DateTime @db.Date
+  endsAt       DateTime @db.Date
+  // فترة السماح وفترة القراءة فقط بالأيام (null = الافتراضي من الإعدادات)
+  graceDays    Int?
+  readonlyDays Int?
+
+  // آخر مرة نسخة الاشتراك اتكتبت في قاعدة الشركة، وسبب الفشل لو فشلت
+  syncedAt    DateTime?
+  syncError   String?   @db.Text
+
+  // آخر نشاط (البرنامج الأساسي بيحدّثه)
+  lastSeenAt  DateTime?
+
+  createdById Int?
+  createdBy   Staff?   @relation("CompanyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  history       SubscriptionHistory[]
+  audits        AuditLog[]
+  supportTokens SupportToken[]
+  channels      CompanyChannel[]
+
+  @@index([status])
+  @@index([endsAt])
+  @@index([planId])
+  @@index([activityId])
+  @@map("companies")
+}
+
+// كل تجديد أو تمديد أو تغيير باقة أو إيقاف
+model SubscriptionHistory {
+  id        Int       @id @default(autoincrement())
+  companyId Int
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // create | renew | plan | suspend | activate | cancel
+  action    String    @db.VarChar(20)
+  planId    Int?
+  plan      Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  startsAt  DateTime? @db.Date
+  endsAt    DateTime? @db.Date
+  amount    Decimal?  @db.Decimal(12, 2)
+  note      String?   @db.VarChar(500)
+  staffId   Int?
+  staff     Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+
+  @@index([companyId])
+  @@map("subscription_history")
+}
+
+// سجل العمليات: مين عمل إيه وإمتى
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  staffId   Int?
+  staff     Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  action    String   @db.VarChar(50)
+  details   Json?
+  ip        String?  @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([staffId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// روابط "دخول كدعم فني" (قصيرة العمر، تُستخدم مرة واحدة)
+model SupportToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique @db.VarChar(64)
+  companyId Int
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  staffId   Int
+  staff     Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([companyId])
+  @@map("support_tokens")
+}
+
+// ============================================================
+// قوالب الأدوار (كاشير، محاسب...): بتنزل عند الشركات كأدوار ثابتة مقفولة
+// permissions: مفاتيح صلاحيات البرنامج الأساسي ["sales.pos", ...]
+// ============================================================
+model RoleTemplate {
+  id          Int      @id @default(autoincrement())
+  arName      String   @unique @db.VarChar(50)
+  enName      String   @unique @db.VarChar(50)
+  permissions Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("role_templates")
+}
+
+// ============================================================
+// قوالب طرق الدفع ← طرق دفع ثابتة جوه قواعد الشركات
+// (payment_methods.templateKey = "P<رقم القالب>")
+// الشركة تقدر توقفها وتشغّلها بس، والباقي من هنا
+// type: cash | card | wallet | transfer | credit
+// ============================================================
+
+model PaymentMethodTemplate {
+  id                Int      @id @default(autoincrement())
+  arName            String   @unique @db.VarChar(50)
+  enName            String   @unique @db.VarChar(50)
+  type              String   @db.VarChar(10)
+  requiresReference Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("payment_method_templates")
+}
+
+// ============================================================
+// تطبيقات التوصيل ← sales_channels جوه قواعد الشركات (templateKey = "C<رقم التطبيق>")
+// - القيم هنا افتراضية، وكل شركة ليها قيمها في company_channels
+// markupType: percent نسبة | amount مبلغ (زيادة على سعر الصنف)
+// commissionPercent: عمولة التطبيق من الصافي (تقارير الشركة)
+// ============================================================
+
+model SalesChannelTemplate {
+  id                Int      @id @default(autoincrement())
+  arName            String   @unique @db.VarChar(100)
+  enName            String   @unique @db.VarChar(100)
+  markupType        String   @default("percent") @db.VarChar(10)
+  markupValue       Decimal  @default(0) @db.Decimal(18, 4)
+  commissionPercent Decimal  @default(0) @db.Decimal(7, 2)
+  sortOrder         Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  companies CompanyChannel[]
+
+  @@map("sales_channel_templates")
+}
+
+// التطبيق عند الشركة: مفعّل ولا لأ + قيمه الخاصة بيها
+model CompanyChannel {
+  id                Int                  @id @default(autoincrement())
+  companyId         Int
+  company           Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templateId        Int
+  template          SalesChannelTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  markupType        String               @default("percent") @db.VarChar(10)
+  markupValue       Decimal              @default(0) @db.Decimal(18, 4)
+  commissionPercent Decimal              @default(0) @db.Decimal(7, 2)
+  isActive          Boolean              @default(true)
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([companyId, templateId])
+  @@index([templateId])
+  @@map("company_channels")
+}
+
+// ============================================================
+// إعدادات اللوحة (صف واحد)
+// ============================================================
+
+model PanelSettings {
+  id           Int      @id @default(1)
+  // القيم الافتراضية لأي شركة جديدة
+  graceDays    Int      @default(7)
+  readonlyDays Int      @default(14)
+  // "قربت تخلص": قبل الانتهاء بكام يوم
+  expiringDays Int      @default(7)
+  // بادئة اسم قاعدة البيانات المقترح (erp_ + الكود)
+  dbPrefix     String   @default("erp_") @db.VarChar(20)
+
+  // بيانات الشركة المالكة (الدعم الفني): بتظهر عند العملاء
+  // (شاشة الدخول "تنفيذ: ..."، صفحة "تواصل معنا"، رسايل الاشتراك)
+  vendorArName    String? @db.VarChar(150)
+  vendorEnName    String? @db.VarChar(150)
+  vendorLogo      String? @db.VarChar(500)
+  vendorPhone     String? @db.VarChar(30)
+  vendorPhone2    String? @db.VarChar(30)
+  vendorWhatsapp  String? @db.VarChar(30)
+  vendorEmail     String? @db.VarChar(150)
+  vendorWebsite   String? @db.VarChar(200)
+  vendorAddressAr String? @db.VarChar(300)
+  vendorAddressEn String? @db.VarChar(300)
+  vendorHoursAr   String? @db.VarChar(200)
+  vendorHoursEn   String? @db.VarChar(200)
+
+  // النسخ التلقائي لقاعدة اللوحة نفسها (كل يوم الساعة panelBackupTime بتوقيت السعودية)
+  // panelBackupKeep: عدد النسخ التلقائية اللي تتساب (الأقدم تتمسح)
+  panelBackupEnabled   Boolean   @default(true)
+  panelBackupTime      String    @default("03:00") @db.VarChar(5)
+  panelBackupKeep      Int       @default(14)
+  panelBackupLastAt    DateTime?
+  panelBackupLastOk    Boolean?
+  panelBackupLastError String?   @db.VarChar(500)
+
+  updatedAt    DateTime @updatedAt
+
+  @@map("panel_settings")
+}

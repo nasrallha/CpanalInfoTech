@@ -1,0 +1,18 @@
+/node_modules
+/.next/
+/out/
+/build
+.env
+.env*.local
+*.tsbuildinfo
+next-env.d.ts
+/generated/prisma
+/logs/
+*.log
+.DS_Store
+
+# الصور المرفوعة (بتتنقل للسيرفر لوحدها، مش مع الكود)
+/uploads
+
+# النسخ الاحتياطي من اللوحة
+/backups

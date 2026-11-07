@@ -1,0 +1,20 @@
+//database
+CREATE DATABASE infotechCpanel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'cpanel_user'@'localhost' IDENTIFIED BY 'asd123**';
+GRANT ALL PRIVILEGES ON infotechCpanel.* TO 'cpanel_user'@'localhost';
+FLUSH PRIVILEGES;
+
+# قاعدة بيانات لوحة التحكم (منفصلة عن قواعد الشركات)
+DATABASE_URL="mysql://cpanel_user:asd123**@localhost:3306/infotechCpanel"
+
+# مفتاح التشفير (32 حرف أو أكتر، عشوائي): بيتشفّر بيه باسوردات قواعد الشركات
+# ⚠ نفس المفتاح لازم يتحط في البرنامج الأساسي (عشان يفك باسورد قاعدة كل شركة)
+# ⚠ لو اتغيّر أو ضاع: باسوردات القواعد المتخزنة مش هتتفك
+PANEL_SECRET_KEY="infotech-toplevel-cpanel-application-mn1111997-o182026-asd"
+
+# رابط البرنامج الأساسي (بيتكتب في لينك كل شركة)
+ERP_URL="https://app.infotechcards.org"
+
+# على شبكة محلية من غير https: خليها false وإلا الدخول مش هيشتغل
+# COOKIE_SECURE=false
+
