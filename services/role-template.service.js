@@ -6,6 +6,7 @@ import {
   applyRoleTemplates,
   databasesWithRoles,
   readRolesFromDb,
+  roleTemplateStatus,
 } from "@/lib/provision";
 import { audit } from "./audit.service";
 
@@ -97,17 +98,58 @@ export async function importRoleTemplates({ dbName }, user) {
 // ------------------------------------------------------------
 // تطبيق القوالب على قاعدة شركة / شركات مختارة
 // ------------------------------------------------------------
-export async function applyTemplatesToCompany(companyId) {
+// mode: keep (الافتراضي) ← الأدوار المتعدّلة للشركة متتلمسش | all ← كله يرجع زي القالب
+export async function applyTemplatesToCompany(companyId, mode = "keep") {
   const c = await prisma.company.findUnique({
     where: { id: companyId },
     select: { dbName: true, provisionedAt: true },
   });
   if (!c?.provisionedAt) throw new AppError("NotProvisioned");
   const templates = await getRoleTemplates();
-  return applyRoleTemplates(c.dbName, templates);
+  return applyRoleTemplates(c.dbName, templates, { mode });
 }
 
-export async function applyTemplatesToCompanies({ ids }, user) {
+// حالة القوالب عند كل شركة (قبل التطبيق): { [companyId]: { [templateId]: status } }
+// (شركة مش بترد: { error })
+export async function templateStatusForCompanies({ ids }) {
+  const [templates, rows] = await Promise.all([
+    getRoleTemplates(),
+    prisma.company.findMany({
+      where: { id: { in: ids }, provisionedAt: { not: null } },
+      select: { id: true, dbName: true },
+    }),
+  ]);
+  const out = {};
+  for (const c of rows) {
+    try {
+      out[c.id] = await roleTemplateStatus(c.dbName, templates);
+    } catch (e) {
+      out[c.id] = { error: e instanceof AppError ? e.code : "TemplatesFailed" };
+    }
+  }
+  return out;
+}
+
+// «رجّع للقالب»: دور واحد عند شركة واحدة يرجع زي القالب (ويشيل علامة «متعدّل»)
+export async function resetTemplateRole({ companyId, templateId }, user) {
+  const [c, t] = await Promise.all([
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { code: true, dbName: true, provisionedAt: true },
+    }),
+    prisma.roleTemplate.findUnique({ where: { id: templateId } }),
+  ]);
+  if (!c?.provisionedAt) throw new AppError("NotProvisioned");
+  if (!t) throw new AppError("NotFound");
+  await applyRoleTemplates(c.dbName, [t], { mode: "all", partial: true });
+  await audit(user, "roleTemplate.reset", {
+    companyId,
+    details: { company: c.code, template: t.arName },
+  });
+  return { ok: true };
+}
+
+export async function applyTemplatesToCompanies({ ids, mode = "keep" }, user) {
   const rows = await prisma.company.findMany({
     where: { id: { in: ids }, provisionedAt: { not: null } },
     orderBy: { serialNo: "asc" },
@@ -116,8 +158,8 @@ export async function applyTemplatesToCompanies({ ids }, user) {
   const results = [];
   for (const c of rows) {
     try {
-      await applyTemplatesToCompany(c.id);
-      results.push({ ...c, ok: true });
+      const r = await applyTemplatesToCompany(c.id, mode);
+      results.push({ ...c, ok: true, skipped: r?.skipped ?? 0 });
     } catch (e) {
       results.push({
         ...c,
@@ -131,6 +173,7 @@ export async function applyTemplatesToCompanies({ ids }, user) {
   }
   await audit(user, "roleTemplate.apply", {
     details: {
+      mode,
       companies: results.filter((r) => r.ok).map((r) => r.code),
       failed: results.filter((r) => r.error).map((r) => r.code),
     },

@@ -617,6 +617,22 @@
     "Status_active": "Active"
   },
   "RoleTemplates": {
+    "AppliedSkipped": "Applied to {n} companies; {skipped} customized roles were kept unchanged",
+    "ModeKeep": "Update matching roles, keep customized ones",
+    "ModeKeepHint": "Roles customized for a company stay as they are; the rest get the latest template",
+    "ModeAll": "Apply to all",
+    "ModeAllHint": "Every role goes back to its template; company customizations are removed",
+    "ConfirmAllTitle": "Apply templates to all?",
+    "ConfirmAll": "Any customizations to fixed roles in the selected companies will be removed and the roles reset to their templates.",
+    "ResetToTemplate": "Reset to template",
+    "ResetConfirm": "Reset this role in this company to the template permissions?",
+    "ResetDone": "Role reset to the template",
+    "status": {
+      "same": "Matches",
+      "customized": "Customized",
+      "outdated": "Needs update",
+      "missing": "Missing"
+    },
     "Title": "Role templates",
     "Subtitle": "Fixed roles delivered to companies (cashier, accountant...)",
     "Note": "New companies get these templates automatically with “Create database”. Later changes are delivered only when you press “Apply to companies” and choose companies. At the customer these roles are locked: they can only assign them to users.",

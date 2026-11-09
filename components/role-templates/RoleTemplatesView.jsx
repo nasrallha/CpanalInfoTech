@@ -8,6 +8,8 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
+  Radio,
   Row,
   Select,
   Space,
@@ -33,6 +35,8 @@ import {
   deleteRoleTemplateAction,
   importRolesAction,
   importableDatabasesAction,
+  resetTemplateRoleAction,
+  templateStatusAction,
   updateRoleTemplateAction,
 } from "@/actions/role-template.actions";
 
@@ -191,7 +195,11 @@ export default function RoleTemplatesView({ templates, meta, companies }) {
 
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} />}
       {applyOpen && (
-        <ApplyModal companies={companies} onClose={() => setApplyOpen(false)} />
+        <ApplyModal
+          companies={companies}
+          templates={templates}
+          onClose={() => setApplyOpen(false)}
+        />
       )}
     </>
   );
@@ -256,7 +264,17 @@ function ImportModal({ onClose }) {
 }
 
 // ---------- تطبيق القوالب على شركات مختارة ----------
-function ApplyModal({ companies, onClose }) {
+// - حالة كل دور عند كل شركة: مطابق / متعدّل للشركة / محتاج تحديث / مش موجود
+// - الطريقة: «حدّث المطابق وسيب المتعدّل» (الافتراضي) أو «طبّق على الكل» (بتأكيد)
+// - «رجّع للقالب» لدور متعدّل عند شركة واحدة
+const STATUS_COLOR = {
+  same: "green",
+  customized: "orange",
+  outdated: "blue",
+  missing: "default",
+};
+
+function ApplyModal({ companies, templates, onClose }) {
   const t = useTranslations("RoleTemplates");
   const tAlerts = useTranslations("Alerts");
   const locale = useLocale();
@@ -264,33 +282,129 @@ function ApplyModal({ companies, onClose }) {
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState(null);
+  const [mode, setMode] = useState("keep");
+  // { [companyId]: { [templateId]: status } | { error } } (null = بيحمّل)
+  const [status, setStatus] = useState(null);
+  const [resetting, setResetting] = useState(null);
 
-  const run = async () => {
+  const loadStatus = (ids) =>
+    templateStatusAction({ ids }).then((res) => {
+      if (!res.success) {
+        showActionError(res, tAlerts);
+        return;
+      }
+      setStatus((prev) => ({ ...(prev ?? {}), ...res.data }));
+    });
+
+  // حالة القوالب عند كل الشركات (مرة واحدة لما النافذة تتفتح)
+  useEffect(() => {
+    let alive = true;
+    templateStatusAction({ ids: companies.map((c) => c.id) }).then((res) => {
+      if (!alive) return;
+      if (!res.success) {
+        showActionError(res, tAlerts);
+        setStatus({});
+      } else setStatus(res.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [companies, tAlerts]);
+
+  const runApply = async () => {
     setBusy(true);
-    const res = await applyTemplatesAction({ ids: selected });
+    const res = await applyTemplatesAction({ ids: selected, mode });
     setBusy(false);
     if (!res.success) return showActionError(res, tAlerts);
     const failed = res.data.results.filter((r) => r.error);
+    const skipped = res.data.results.reduce((n, r) => n + (r.skipped ?? 0), 0);
     setResults(res.data.results);
     if (failed.length) message.warning(t("ApplyFailed", { n: failed.length }));
-    else {
-      message.success(t("Applied", { n: res.data.results.length }));
-      onClose();
-    }
+    else
+      message.success(
+        skipped
+          ? t("AppliedSkipped", { n: res.data.results.length, skipped })
+          : t("Applied", { n: res.data.results.length }),
+      );
+    loadStatus(selected);
+  };
+
+  // «طبّق على الكل» بيمسح تعديلات الشركات ← تأكيد قبله
+  const run = () => {
+    if (mode !== "all") return runApply();
+    Modal.confirm({
+      title: t("ConfirmAllTitle"),
+      content: t("ConfirmAll"),
+      okText: t("ApplyRun", { n: selected.length }),
+      okButtonProps: { danger: true },
+      onOk: runApply,
+    });
+  };
+
+  const reset = async (companyId, templateId) => {
+    setResetting(`${companyId}:${templateId}`);
+    const res = await resetTemplateRoleAction({ companyId, templateId });
+    setResetting(null);
+    if (!res.success) return showActionError(res, tAlerts);
+    message.success(t("ResetDone"));
+    loadStatus([companyId]);
+  };
+
+  const cell = (c, tpl) => {
+    const st = status?.[c.id];
+    if (!st) return <span className="muted">…</span>;
+    if (st.error) return <Tag color="red">{tAlerts(st.error)}</Tag>;
+    const v = st[tpl.id] ?? "missing";
+    return (
+      <Space size={4} wrap>
+        <Tag color={STATUS_COLOR[v]}>{t(`status.${v}`)}</Tag>
+        {v === "customized" && (
+          <Popconfirm
+            title={t("ResetConfirm")}
+            okText={t("ResetToTemplate")}
+            onConfirm={() => reset(c.id, tpl.id)}
+          >
+            <Button
+              size="small"
+              type="link"
+              loading={resetting === `${c.id}:${tpl.id}`}
+            >
+              {t("ResetToTemplate")}
+            </Button>
+          </Popconfirm>
+        )}
+      </Space>
+    );
   };
 
   return (
     <Modal
       open
-      width={720}
+      width={1000}
       title={t("Apply")}
       okText={t("ApplyRun", { n: selected.length })}
-      okButtonProps={{ disabled: !selected.length }}
+      okButtonProps={{ disabled: !selected.length, danger: mode === "all" }}
       confirmLoading={busy}
       onCancel={onClose}
       onOk={run}
     >
       <p className="muted">{t("ApplyHint")}</p>
+      <Radio.Group
+        className="mb-3"
+        value={mode}
+        onChange={(e) => setMode(e.target.value)}
+      >
+        <Space orientation="vertical">
+          <Radio value="keep">
+            <b>{t("ModeKeep")}</b>{" "}
+            <span className="muted">— {t("ModeKeepHint")}</span>
+          </Radio>
+          <Radio value="all">
+            <b>{t("ModeAll")}</b>{" "}
+            <span className="muted">— {t("ModeAllHint")}</span>
+          </Radio>
+        </Space>
+      </Radio.Group>
       {results?.some((r) => r.error) && (
         <Alert
           type="warning"
@@ -314,20 +428,32 @@ function ApplyModal({ companies, onClose }) {
         rowKey="id"
         dataSource={companies}
         pagination={false}
-        scroll={{ y: 360 }}
+        loading={status === null}
+        scroll={{ x: 360 + templates.length * 170, y: 360 }}
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys),
         }}
         columns={[
-          { title: "#", dataIndex: "serialNo", width: 60 },
           {
             title: t("Code"),
             dataIndex: "code",
-            width: 110,
+            width: 100,
+            fixed: "start",
             render: (v) => <span className="mono">{v}</span>,
           },
-          { title: t("Company"), render: (_, r) => nm(r) },
+          {
+            title: t("Company"),
+            width: 180,
+            fixed: "start",
+            render: (_, r) => nm(r),
+          },
+          ...templates.map((tpl) => ({
+            title: nm(tpl),
+            key: `t${tpl.id}`,
+            width: 170,
+            render: (_, c) => cell(c, tpl),
+          })),
         ]}
       />
     </Modal>

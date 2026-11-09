@@ -307,8 +307,19 @@ export const updateRoleTemplateSchema = z.object({
 export const importRolesSchema = z.object({
   dbName: z.string().trim().min(1, "RequiredField").max(64),
 });
+// mode: keep ← الأدوار المتعدّلة للشركة متتلمسش (الافتراضي) | all ← كله زي القالب
 export const applyTemplatesSchema = z.object({
   ids: z.array(idField).min(1, "SelectCompanies").max(1000),
+  mode: z.enum(["keep", "all"]).default("keep"),
+});
+// حالة القوالب عند الشركات (قبل التطبيق)
+export const templateStatusSchema = z.object({
+  ids: z.array(idField).max(1000),
+});
+// «رجّع للقالب»: دور واحد عند شركة واحدة
+export const resetTemplateRoleSchema = z.object({
+  companyId: idField,
+  templateId: idField,
 });
 
 // ---------- قوالب طرق الدفع ----------

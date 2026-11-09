@@ -5,6 +5,8 @@ import {
   createRoleTemplateSchema,
   idSchema,
   importRolesSchema,
+  resetTemplateRoleSchema,
+  templateStatusSchema,
   updateRoleTemplateSchema,
 } from "@/validations/schemas";
 import {
@@ -13,6 +15,8 @@ import {
   deleteRoleTemplate,
   getImportableDatabases,
   importRoleTemplates,
+  resetTemplateRole,
+  templateStatusForCompanies,
   updateRoleTemplate,
 } from "@/services/role-template.service";
 
@@ -58,3 +62,15 @@ export const applyTemplatesAction = async (input) =>
       permission: "roleTemplates.manage",
     },
   );
+
+// حالة القوالب عند الشركات (مطابق / متعدّل للشركة / محتاج تحديث / مش موجود)
+export const templateStatusAction = async (input) =>
+  runAction(templateStatusSchema, input, (d) => templateStatusForCompanies(d), {
+    permission: "roleTemplates.manage",
+  });
+
+// «رجّع للقالب»: دور واحد عند شركة واحدة
+export const resetTemplateRoleAction = async (input) =>
+  runAction(resetTemplateRoleSchema, input, (d, u) => resetTemplateRole(d, u), {
+    permission: "roleTemplates.manage",
+  });
