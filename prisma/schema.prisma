@@ -190,6 +190,9 @@ model Company {
   // استثناءات المميزات للشركة دي على باقتها: { "zatca": "off", "purchases": "on" }
   // (المفتاح مش موجود = حسب الباقة)
   featureOverrides Json?
+  // الصلاحيات المقفولة على الشركة دي: فاضي (null) = زي القايمة العامة،
+  // قايمة = خاصة بالشركة دي (استثناء)
+  blockedPermissions Json?
   // استثناءات وحدات النشاط: { key: "on" | "off" } (المش موجود = حسب النشاط)
   moduleOverrides  Json?
 
@@ -395,6 +398,10 @@ model PanelSettings {
   panelBackupLastAt    DateTime?
   panelBackupLastOk    Boolean?
   panelBackupLastError String?   @db.VarChar(500)
+
+  // صلاحيات مقفولة على العملاء (كل الشركات، حتى مدير النظام عندهم) ← للمالك بس
+  // فاضي (null) = القايمة الافتراضية (lib/client-locks)
+  clientBlockedPermissions Json?
 
   updatedAt    DateTime @updatedAt
 

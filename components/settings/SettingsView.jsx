@@ -21,9 +21,11 @@ import {
   saveVendorAction,
 } from "@/actions/catalog.actions";
 import ImageUploadItem from "@/components/common/ImageUploadItem";
+import PermissionPicker from "@/components/role-templates/PermissionPicker";
+import { saveClientLocksAction } from "@/actions/catalog.actions";
 import { imageUrl } from "@/lib/image";
 
-export default function SettingsView({ settings, status }) {
+export default function SettingsView({ settings, status, permMeta, locks }) {
   const t = useTranslations("Settings");
   const tAlerts = useTranslations("Alerts");
   const [form] = Form.useForm();
@@ -32,105 +34,112 @@ export default function SettingsView({ settings, status }) {
   return (
     <>
       <PageHeader title={t("Title")} />
-      {/* الكروت عمودين على الشاشة العريضة (من غير نزول لتحت) */}
-      <div className="settings-masonry">
-        <Card size="small" className="mb-4" title={t("Status")}>
-          <div className="mb-2">
-            {t("SecretKey")}:{" "}
-            {status.secretKey ? (
-              <Tag color="green">{t("Ready")}</Tag>
-            ) : (
-              <Tag color="red">{t("Missing")}</Tag>
+      {/* الشاشة مليانة: الحالة والافتراضيات على اليمين، وبيانات الشركة المالكة
+          جنبهم بباقي العرض (من غير ما تنزل تحت وتسيب مكان فاضي) */}
+      <Row gutter={16} align="top">
+        <Col xs={24} lg={9}>
+          <Card size="small" className="mb-4" title={t("Status")}>
+            <div className="mb-2">
+              {t("SecretKey")}:{" "}
+              {status.secretKey ? (
+                <Tag color="green">{t("Ready")}</Tag>
+              ) : (
+                <Tag color="red">{t("Missing")}</Tag>
+              )}
+            </div>
+            <div>
+              {t("ErpUrl")}:{" "}
+              {status.erpUrl ? (
+                <bdi className="mono">{status.erpUrl}</bdi>
+              ) : (
+                <Tag color="red">{t("Missing")}</Tag>
+              )}
+            </div>
+            <div className="mt-2">
+              {t("Migrations")}:{" "}
+              {status.migrations ? (
+                <Tag color="green">
+                  {t("MigrationsCount", { n: status.migrations })}
+                </Tag>
+              ) : (
+                <Tag color="red">{t("Missing")}</Tag>
+              )}
+            </div>
+            {!status.migrations && (
+              <Alert
+                type="error"
+                showIcon
+                className="mt-3"
+                title={t("MigrationsHint")}
+              />
             )}
-          </div>
-          <div>
-            {t("ErpUrl")}:{" "}
-            {status.erpUrl ? (
-              <bdi className="mono">{status.erpUrl}</bdi>
-            ) : (
-              <Tag color="red">{t("Missing")}</Tag>
+            {!status.secretKey && (
+              <Alert
+                type="error"
+                showIcon
+                className="mt-3"
+                title={t("SecretKeyHint")}
+              />
             )}
-          </div>
-          <div className="mt-2">
-            {t("Migrations")}:{" "}
-            {status.migrations ? (
-              <Tag color="green">
-                {t("MigrationsCount", { n: status.migrations })}
-              </Tag>
-            ) : (
-              <Tag color="red">{t("Missing")}</Tag>
-            )}
-          </div>
-          {!status.migrations && (
-            <Alert
-              type="error"
-              showIcon
-              className="mt-3"
-              title={t("MigrationsHint")}
-            />
-          )}
-          {!status.secretKey && (
-            <Alert
-              type="error"
-              showIcon
-              className="mt-3"
-              title={t("SecretKeyHint")}
-            />
-          )}
-        </Card>
-        <Card size="small" className="mb-4" title={t("Defaults")}>
-          <Form
-            form={form}
-            layout="vertical"
-            initialValues={settings}
-            onFinish={async (v) => {
-              setSaving(true);
-              const res = await saveSettingsAction(v);
-              setSaving(false);
-              if (!res.success) return showActionError(res, tAlerts, form);
-              syncResult(res.data, t);
-            }}
-          >
-            <Row gutter={12}>
-              {["graceDays", "readonlyDays", "expiringDays"].map((f) => (
-                <Col xs={24} md={8} key={f}>
+          </Card>
+          <Card size="small" className="mb-4" title={t("Defaults")}>
+            <Form
+              form={form}
+              layout="vertical"
+              initialValues={settings}
+              onFinish={async (v) => {
+                setSaving(true);
+                const res = await saveSettingsAction(v);
+                setSaving(false);
+                if (!res.success) return showActionError(res, tAlerts, form);
+                syncResult(res.data, t);
+              }}
+            >
+              <Row gutter={12}>
+                {["graceDays", "readonlyDays", "expiringDays"].map((f) => (
+                  <Col xs={12} key={f}>
+                    <Form.Item
+                      name={f}
+                      label={t(f)}
+                      tooltip={t(`${f}Hint`)}
+                      rules={[
+                        { required: true, message: tAlerts("RequiredField") },
+                      ]}
+                    >
+                      <InputNumber
+                        min={f === "expiringDays" ? 1 : 0}
+                        max={365}
+                        precision={0}
+                        style={{ width: "100%" }}
+                      />
+                    </Form.Item>
+                  </Col>
+                ))}
+                <Col xs={12}>
                   <Form.Item
-                    name={f}
-                    label={t(f)}
-                    extra={t(`${f}Hint`)}
+                    name="dbPrefix"
+                    label={t("dbPrefix")}
+                    tooltip={t("dbPrefixHint")}
                     rules={[
                       { required: true, message: tAlerts("RequiredField") },
                     ]}
                   >
-                    <InputNumber
-                      min={f === "expiringDays" ? 1 : 0}
-                      max={365}
-                      precision={0}
-                      style={{ width: "100%" }}
-                    />
+                    <Input dir="ltr" />
                   </Form.Item>
                 </Col>
-              ))}
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="dbPrefix"
-                  label={t("dbPrefix")}
-                  extra={t("dbPrefixHint")}
-                  rules={[
-                    { required: true, message: tAlerts("RequiredField") },
-                  ]}
-                >
-                  <Input dir="ltr" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Button type="primary" htmlType="submit" loading={saving}>
-              {t("Save")}
-            </Button>
-          </Form>
-        </Card>
-        <VendorCard settings={settings} />
-      </div>
+              </Row>
+              <Button type="primary" htmlType="submit" loading={saving}>
+                {t("Save")}
+              </Button>
+            </Form>
+          </Card>
+        </Col>
+        <Col xs={24} lg={15}>
+          <VendorCard settings={settings} />
+        </Col>
+      </Row>
+      {/* الصلاحيات المقفولة على العملاء (عرض الشاشة كامل) */}
+      <ClientLocksCard meta={permMeta} locks={locks} />
     </>
   );
 }
@@ -142,16 +151,17 @@ function syncResult({ total = 0, failed = 0 } = {}, t) {
 }
 
 // ---------- بيانات الشركة المالكة (الدعم الفني) ----------
+// 3 في السطر (الكارت بياخد باقي عرض الشاشة)
 const VENDOR_FIELDS = [
-  ["vendorArName", 12, false],
-  ["vendorEnName", 12, true],
+  ["vendorArName", 8, false],
+  ["vendorEnName", 8, true],
   ["vendorPhone", 8, true],
   ["vendorPhone2", 8, true],
   ["vendorWhatsapp", 8, true],
-  ["vendorEmail", 12, true],
-  ["vendorWebsite", 12, true],
-  ["vendorAddressAr", 12, false],
-  ["vendorAddressEn", 12, true],
+  ["vendorEmail", 8, true],
+  ["vendorWebsite", 8, true],
+  ["vendorAddressAr", 8, false],
+  ["vendorAddressEn", 8, true],
   ["vendorHoursAr", 12, false],
   ["vendorHoursEn", 12, true],
 ];
@@ -221,6 +231,50 @@ function VendorCard({ settings }) {
           {t("Save")}
         </Button>
       </Form>
+    </Card>
+  );
+}
+
+// ---------- الصلاحيات المقفولة على العملاء ----------
+// المعلَّم هنا مقفول على كل الشركات (حتى مدير النظام عندهم) ← للمالك بس
+// (ولكل شركة استثناء من صفحتها: «المميزات»)
+function ClientLocksCard({ meta, locks }) {
+  const t = useTranslations("Settings");
+  const tAlerts = useTranslations("Alerts");
+  const [value, setValue] = useState(locks ?? []);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const res = await saveClientLocksAction({ permissions: value });
+    setSaving(false);
+    if (!res.success) return showActionError(res, tAlerts);
+    syncResult(res.data, t);
+  };
+
+  return (
+    <Card
+      size="small"
+      className="mb-4"
+      title={t("ClientLocks")}
+      extra={
+        <Button
+          type="primary"
+          size="small"
+          loading={saving}
+          disabled={!meta}
+          onClick={save}
+        >
+          {t("Save")}
+        </Button>
+      }
+    >
+      <Alert type="info" showIcon className="mb-3" title={t("ClientLocksHint")} />
+      {meta ? (
+        <PermissionPicker meta={meta} value={value} onChange={setValue} />
+      ) : (
+        <Alert type="error" showIcon title={tAlerts("ErpPermissionsMissing")} />
+      )}
     </Card>
   );
 }

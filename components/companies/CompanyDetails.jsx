@@ -39,6 +39,7 @@ import AuditTable from "@/components/audit/AuditTable";
 import ProvisionButton from "./ProvisionButton";
 import DangerZone from "./DangerZone";
 import FeaturesTab from "./FeaturesTab";
+import CompanyLocks from "./CompanyLocks";
 import CompanyIdentityFields from "./CompanyIdentityFields";
 import { addMonths, today, formatDateTime } from "@/lib/dates";
 import { planAmount } from "@/lib/plan-price";
@@ -69,6 +70,8 @@ export default function CompanyDetails({
   dbStatus,
   features = [],
   modules = [],
+  permMeta = null,
+  globalLocks = [],
 }) {
   const t = useTranslations("Companies");
   const tAlerts = useTranslations("Alerts");
@@ -301,12 +304,20 @@ export default function CompanyDetails({
       key: "features",
       label: t("TabFeatures"),
       children: (
-        <FeaturesTab
-          c={c}
-          features={features}
-          modules={modules}
-          canEdit={can("companies.plan")}
-        />
+        <>
+          <FeaturesTab
+            c={c}
+            features={features}
+            modules={modules}
+            canEdit={can("companies.plan")}
+          />
+          <CompanyLocks
+            c={c}
+            meta={permMeta}
+            globalLocks={globalLocks}
+            canEdit={can("companies.plan")}
+          />
+        </>
       ),
     },
     can("companies.edit") && {

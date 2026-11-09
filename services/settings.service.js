@@ -23,6 +23,21 @@ export async function saveSettings(data, user) {
 }
 
 // ------------------------------------------------------------
+// الصلاحيات المقفولة على العملاء (القايمة العامة لكل الشركات)
+// ------------------------------------------------------------
+export async function saveClientLocks({ permissions }, user) {
+  const { cleanLocks } = await import("@/lib/client-locks");
+  const list = await cleanLocks(permissions);
+  await prisma.panelSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, clientBlockedPermissions: list },
+    update: { clientBlockedPermissions: list },
+  });
+  await audit(user, "settings.clientLocks", { details: { count: list.length } });
+  return list;
+}
+
+// ------------------------------------------------------------
 // بيانات الشركة المالكة (الدعم الفني) + اللوجو
 // ------------------------------------------------------------
 export async function saveVendor({ logo, removeLogo, ...data }, user) {

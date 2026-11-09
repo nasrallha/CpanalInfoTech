@@ -7,7 +7,9 @@ import { getCompany, getCompanyDbStatus } from "@/services/company.service";
 import { getActivePlans, getPlanFeatures } from "@/services/plan.service";
 import { getActiveActivities } from "@/services/activity.service";
 import { getAuditLogs } from "@/services/audit.service";
-import { erpModuleCatalog } from "@/lib/erp-meta";
+import { erpModuleCatalog, erpPermissions } from "@/lib/erp-meta";
+import { globalClientLocks } from "@/lib/client-locks";
+import { getSettings } from "@/services/settings.service";
 import CompanyDetails from "@/components/companies/CompanyDetails";
 import NoAccess from "@/components/common/NoAccess";
 import Loading from "@/components/common/Loading";
@@ -30,6 +32,11 @@ async function Content({ params }) {
     ]);
   if (!company) notFound();
   const dbStatus = await getCompanyDbStatus(company);
+  // الصلاحيات المقفولة: العامة (للمقارنة) + أسماء الصلاحيات
+  const [permMeta, globalLocks] = await Promise.all([
+    erpPermissions(),
+    getSettings().then(globalClientLocks),
+  ]);
   return (
     <CompanyDetails
       company={company}
@@ -40,6 +47,8 @@ async function Content({ params }) {
       dbStatus={dbStatus}
       features={features}
       modules={modules}
+      permMeta={permMeta}
+      globalLocks={globalLocks}
     />
   );
 }

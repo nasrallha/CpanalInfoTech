@@ -155,6 +155,11 @@
     "NothingToDo": "Nothing needs attention 👌"
   },
   "Companies": {
+    "Locks": "Locked permissions for this company",
+    "LocksHint": "Locked permissions don't work for any user in this company, including the system admin. Use the general list from the panel settings, or a list just for this company",
+    "LocksGlobal": "Same as the general list ({n} permissions)",
+    "LocksCustom": "A list just for this company",
+    "LocksSaved": "Locked permissions saved",
     "Title": "Companies",
     "Count": "{n} companies",
     "New": "New company",
@@ -552,6 +557,8 @@
     }
   },
   "Settings": {
+    "ClientLocks": "Permissions locked for clients",
+    "ClientLocksHint": "Permissions selected here don't work for any user in client companies, including their system admin, and don't appear in their roles screen. Only the program owner can do them from his account inside the company. Saving applies to all companies right away; a company can be given an exception from its page",
     "Title": "Settings",
     "Status": "Panel status",
     "SecretKey": "Encryption key",

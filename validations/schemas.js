@@ -368,6 +368,16 @@ export const panelBackupScheduleSchema = z.object({
 });
 
 // استثناءات المميزات لشركة: { key: "on" | "off" } (المش موجود = حسب الباقة)
+// الصلاحيات المقفولة على العملاء (القايمة العامة)
+const permissionList = z.array(z.string().trim().max(80)).max(2000).default([]);
+export const clientLocksSchema = z.object({ permissions: permissionList });
+// استثناء شركة: global ← زي العامة | custom ← قايمة خاصة
+export const companyLocksSchema = z.object({
+  id: idField,
+  mode: z.enum(["global", "custom"]),
+  permissions: permissionList,
+});
+
 export const companyFeaturesSchema = z.object({
   id: idField,
   overrides: z.record(z.string().max(40), z.enum(["on", "off"])).default({}),

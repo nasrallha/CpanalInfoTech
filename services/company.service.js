@@ -1,4 +1,5 @@
 import "server-only";
+import { cleanLocks, globalClientLocks } from "@/lib/client-locks";
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/errors";
 import { newCompanyCode } from "@/lib/company-code";
@@ -102,6 +103,7 @@ export async function getCompany(id) {
         adminPasswordEnc: true,
         featureOverrides: true,
         moduleOverrides: true,
+        blockedPermissions: true,
         activity: {
           select: { id: true, arName: true, enName: true, modules: true },
         },
@@ -646,6 +648,7 @@ export async function syncCompany(id) {
         provisionedAt: true,
         featureOverrides: true,
         moduleOverrides: true,
+        blockedPermissions: true,
         activity: { select: { modules: true, staffTitle: true } },
         maxUsers: true,
         maxBranches: true,
@@ -710,6 +713,10 @@ export async function syncCompany(id) {
     expiringDays: settings.expiringDays,
     // بيانات الدعم الفني (بتظهر عند العميل)
     vendor: vendorPayload(settings),
+    // صلاحيات مقفولة على الشركة (حتى مدير النظام): استثناء الشركة، وإلا العامة
+    blockedPermissions: Array.isArray(c.blockedPermissions)
+      ? c.blockedPermissions
+      : await globalClientLocks(settings),
   };
   const logs = c.history.map((h) => ({
     id: h.id,
@@ -799,6 +806,25 @@ export async function setCompanyFeatures(
   await audit(user, "company.features", {
     companyId: id,
     details: { ...clean, modules: cleanMods },
+  });
+  return { id, ...(await trySync(id)) };
+}
+
+// الصلاحيات المقفولة على الشركة دي: mode global ← زي القايمة العامة | custom ← قايمة خاصة
+export async function saveCompanyLocks({ id, mode, permissions }, user) {
+  const c = await prisma.company.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!c) throw new AppError("NotFound");
+  const list = mode === "custom" ? await cleanLocks(permissions) : null;
+  await prisma.company.update({
+    where: { id },
+    data: { blockedPermissions: list },
+  });
+  await audit(user, "company.locks", {
+    companyId: id,
+    details: { mode, count: list?.length ?? null },
   });
   return { id, ...(await trySync(id)) };
 }

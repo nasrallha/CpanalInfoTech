@@ -3,6 +3,7 @@ import { runAction } from "@/lib/action";
 import {
   changePlanSchema,
   companyFeaturesSchema,
+  companyLocksSchema,
   createCompanySchema,
   dangerSchema,
   idSchema,
@@ -20,6 +21,7 @@ import {
   migrateCompanies,
   migrateCompany,
   provisionCompany,
+  saveCompanyLocks,
   setCompanyFeatures,
   syncCompanyNow,
   renewCompany,
@@ -106,6 +108,13 @@ export const syncCompanyAction = async (input) =>
 // استثناءات المميزات للشركة دي على باقتها
 export const companyFeaturesAction = async (input) =>
   runAction(companyFeaturesSchema, input, (d, u) => setCompanyFeatures(d, u), {
+    permission: "companies.plan",
+    refresh: true,
+  });
+
+// الصلاحيات المقفولة على الشركة دي (زي العامة / قايمة خاصة)
+export const companyLocksAction = async (input) =>
+  runAction(companyLocksSchema, input, (d, u) => saveCompanyLocks(d, u), {
     permission: "companies.plan",
     refresh: true,
   });

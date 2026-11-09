@@ -2,6 +2,7 @@
 import { runAction } from "@/lib/action";
 import {
   activityActiveSchema,
+  clientLocksSchema,
   createActivitySchema,
   createPlanSchema,
   idSchema,
@@ -17,7 +18,11 @@ import {
   setActivityActive,
   updateActivity,
 } from "@/services/activity.service";
-import { saveSettings, saveVendor } from "@/services/settings.service";
+import {
+  saveClientLocks,
+  saveSettings,
+  saveVendor,
+} from "@/services/settings.service";
 import { syncAllCompanies } from "@/services/company.service";
 
 const plans = { permission: "plans.manage", refresh: true };
@@ -127,3 +132,15 @@ export const saveVendorAction = async (formData) => {
     { permission: "settings.manage", refresh: true },
   );
 };
+
+// الصلاحيات المقفولة على العملاء (كل الشركات) ← بتنزل لكل الشركات على طول
+export const saveClientLocksAction = async (input) =>
+  runAction(
+    clientLocksSchema,
+    input,
+    async (d, u) => {
+      await saveClientLocks(d, u);
+      return syncAllCompanies();
+    },
+    { permission: "settings.manage", refresh: true },
+  );
