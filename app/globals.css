@@ -747,6 +747,23 @@ bdi {
     padding: 5px 10px;
     font-size: 12px;
   }
+  /* الجداول اللي ملهاش scroll: تتحرك بالعرض جواها بدل ما تمط الصفحة */
+  .cp-content .ant-table-wrapper {
+    max-width: 100%;
+  }
+  .cp-content .ant-table-wrapper .ant-table-content {
+    overflow-x: auto;
+  }
+  /* الاختيارات المتجاورة (Segmented) تتحرك بالعرض لو كتير */
+  .ant-segmented {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  /* القوائم المنسدلة متعدّيش عرض الشاشة */
+  .ant-select-dropdown,
+  .ant-dropdown {
+    max-width: calc(100vw - 16px);
+  }
 }
 
 /* اللي بيفضّل حركة أقل */
