@@ -196,7 +196,7 @@ function LoginForm({ needsSetup }) {
               ]}
             >
               <Input.Password
-                autoComplete="new-password"
+                //  autoComplete="new-password"
                 prefix={<LockOutlined className="login-input-icon" />}
                 placeholder="••••••••"
                 dir="ltr"
@@ -222,7 +222,7 @@ function LoginForm({ needsSetup }) {
                 ]}
               >
                 <Input.Password
-                  autoComplete="new-password"
+                  // autoComplete="new-password"
                   prefix={<LockOutlined className="login-input-icon" />}
                   placeholder="••••••••"
                   dir="ltr"

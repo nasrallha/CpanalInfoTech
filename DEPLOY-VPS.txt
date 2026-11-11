@@ -1,0 +1,481 @@
+================================================================
+ دليل تشغيل InfoTech على السيرفر (VPS - Windows Server)
+ اللوحة (CpanalInfoTech) + البرنامج الأساسي (firstapp)
+ آخر تحديث: 2026-11-08
+================================================================
+
+⚠ الملف ده مفيهوش أي باسورد أو مفتاح، ومينفعش يتكتب فيه.
+  الباسوردات والمفاتيح مكانها ملفات .env على السيرفر بس.
+
+
+----------------------------------------------------------------
+ 0) الصورة العامة
+----------------------------------------------------------------
+
+ الدومينات (من Zone Editor في cPanel الاستضافة، على infotechcards.org):
+   - cpanalinfotech.infotechcards.org  ← لوحة التحكم (ليك إنت بس)
+   - app.infotechcards.org             ← البرنامج للعملاء
+       لينك كل شركة: https://app.infotechcards.org/c/<كود الشركة>
+
+ الفولدرات على السيرفر:
+   C:\InfoTechApp\CpanalInfoTech   ← اللوحة
+   C:\InfoTechApp\firstapp         ← البرنامج الأساسي (ERP)
+   C:\InfoTechApp\tools            ← nssm.exe + caddy.exe + Caddyfile
+   C:\InfoTechApp\logs             ← ملفات الـ log
+   C:\InfoTechApp\backups\panel    ← نسخ اللوحة وقواعد الشركات
+   C:\InfoTechApp\caddy-data       ← شهادات https (Caddy)
+
+ الخدمات (Windows Services عن طريق NSSM - بتقوم لوحدها مع السيرفر):
+   InfoTechPanel  ← اللوحة على المنفذ 3100
+   InfoTechERP    ← البرنامج على المنفذ 3000
+   InfoTechCaddy  ← بيستقبل الدومينات على 80/443 ويعمل https
+                    ويحوّل كل دومين على البرنامج بتاعه
+
+ الطريق:
+   المتصفح ← https://... ← Caddy (80/443) ← 127.0.0.1:3100 أو 3000
+
+ قواعد البيانات (MySQL 9.6 على نفس السيرفر):
+   infotechCpanel          ← قاعدة اللوحة (المستخدم cpanel_user)
+   db<اسم>  لكل شركة       ← قاعدة الشركة (مستخدم بنفس اسم القاعدة)
+     dbtoplevel / dbworkshop / dbsalondmt217 / dbclothes / dblaundry / dbrestaurant
+
+
+----------------------------------------------------------------
+ 1) البرامج المطلوبة على السيرفر
+----------------------------------------------------------------
+
+ 1. Node.js (LTS)                     https://nodejs.org
+ 2. Git                               https://git-scm.com/download/win
+ 3. MySQL Server 9.6 + Workbench      (اتسطب في C:\Program Files\MySQL)
+ 4. .NET 8 - ASP.NET Core Runtime - Windows Hosting Bundle
+      https://dotnet.microsoft.com/download/dotnet/8.0
+      (لخدمة الزكاة ZATCA Gateway)
+      تأكيد:  dotnet --list-runtimes   ← لازم يظهر Microsoft.AspNetCore.App 8.0.x
+ 5. NSSM  (https://nssm.cc/release/nssm-2.24.zip)
+      ← خد win64\nssm.exe وحطه في C:\InfoTechApp\tools
+ 6. Caddy (https://github.com/caddyserver/caddy/releases)
+      ← caddy_2.x.x_windows_amd64.zip ← caddy.exe في C:\InfoTechApp\tools
+
+ تأكيد سريع:
+   node -v
+   git --version
+   dotnet --list-runtimes
+
+
+----------------------------------------------------------------
+ 2) سحب المشروعين من GitHub
+----------------------------------------------------------------
+
+   cd /d C:\InfoTechApp
+   git clone <رابط مستودع اللوحة> CpanalInfoTech
+   git clone <رابط مستودع البرنامج> firstapp
+
+ (لو المستودع Private بيفتح متصفح لتسجيل دخول GitHub مرة واحدة)
+
+ ⚠ حاجات مش بتترفع على GitHub، لازم تتنقل بإيدك من جهازك (Copy/Paste
+   في الـ Remote Desktop) لنفس مكانها على السيرفر:
+
+   اللوحة:
+     .env
+
+   البرنامج (firstapp):
+     .env
+     zatca-gateway\publish\        ← خدمة الزكاة المبنية (أو publish.rar وفكّه)
+                                     لازم جواه ZatcaGateway.dll و Rules مباشرة
+     uploads\                      ← صور الأصناف واللوجوهات
+     .tenants\                     ← بيانات الشركات المؤقتة
+     public\downloads\InfoTech-Print-Agent.exe  ← برنامج الطباعة للمطاعم
+
+   فولدر SDK الزكاة الكبير (zatca-einvoicing-sdk-...) مش محتاجه على السيرفر.
+
+
+----------------------------------------------------------------
+ 3) MySQL: الباسورد + قاعدة اللوحة
+----------------------------------------------------------------
+
+ ⚠ الاسترجاع من Workbench (Data Import) بيفشل مع الملفات اللي فيها عربي
+   ('charmap' codec ...). استرجع دايماً من CMD بأداة mysql.
+
+ أداة mysql:
+   cd /d "C:\Program Files\MySQL\MySQL Server 9.6\bin"
+
+ لو CMD بيقول Access denied والـ Workbench شغال:
+   غالباً الباسورد فيه رموز أو لغة الكيبورد عربي.
+   من Workbench (Query جديد ⚡):
+     ALTER USER 'root'@'localhost' IDENTIFIED BY 'باسورد_جديد';
+   (حروف إنجليزي وأرقام، وطويل)
+
+ أ) قاعدة اللوحة (من Workbench):
+   CREATE DATABASE IF NOT EXISTS infotechCpanel
+     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+ ب) استرجاع نسخة اللوحة (من CMD):
+   mysql -u root -p --default-character-set=utf8mb4 infotechCpanel < "C:\InfoTechApp\<ملف_نسخة_اللوحة>.sql"
+
+   تأكيد:
+   mysql -u root -p -e "SELECT COUNT(*) FROM infotechCpanel.companies;"
+
+ ج) مستخدم اللوحة (من Workbench) - نفس الباسورد اللي في DATABASE_URL
+    في .env بتاع اللوحة:
+   CREATE USER IF NOT EXISTS 'cpanel_user'@'localhost' IDENTIFIED BY '<الباسورد>';
+   GRANT ALL PRIVILEGES ON *.* TO 'cpanel_user'@'localhost' WITH GRANT OPTION;
+
+   (الصلاحية على *.* لازمة: اللوحة هي اللي بتعمل قواعد الشركات ومستخدميها)
+   (تحذير «FLUSH PRIVILEGES is deprecated» عادي ومش مشكلة)
+
+
+----------------------------------------------------------------
+ 4) اللوحة: الإعدادات والبناء
+----------------------------------------------------------------
+
+ ملف C:\InfoTechApp\CpanalInfoTech\.env (منسوخ من جهازك) - عدّل دول بس:
+
+   ERP_URL="https://app.infotechcards.org"
+   ERP_MIGRATIONS_DIR="C:/InfoTechApp/firstapp/prisma/migrations"
+   PANEL_BACKUP_DIR="C:/InfoTechApp/backups/panel"
+   DB_USER_HOST  ← امسحه أو خليه localhost
+
+ ⚠ متغيّرش أبداً:
+   PANEL_SECRET_KEY  (لو اتغير: باسوردات قواعد الشركات مش هتتفك)
+   DATABASE_URL
+
+ ⚠ المسارات في .env بالشرطة / مش \
+
+ البناء:
+   cd /d C:\InfoTechApp\CpanalInfoTech
+   npm ci
+   npm run db:deploy
+   npm run build
+
+ تجربة يدوية (اختياري، وقّفها بـ Ctrl+C بعدها):
+   npm start      ← http://localhost:3100
+
+
+----------------------------------------------------------------
+ 5) اللوحة كخدمة دايمة (NSSM)
+----------------------------------------------------------------
+
+ CMD (Run as Administrator):
+
+   mkdir C:\InfoTechApp\logs
+   cd /d C:\InfoTechApp\tools
+   nssm install InfoTechPanel "C:\Program Files\nodejs\node.exe" node_modules\next\dist\bin\next start -p 3100
+   nssm set InfoTechPanel AppDirectory C:\InfoTechApp\CpanalInfoTech
+   nssm set InfoTechPanel AppStdout C:\InfoTechApp\logs\panel.log
+   nssm set InfoTechPanel AppStderr C:\InfoTechApp\logs\panel-error.log
+   nssm set InfoTechPanel AppRotateFiles 1
+   nssm set InfoTechPanel AppRotateBytes 10485760
+   nssm set InfoTechPanel Start SERVICE_AUTO_START
+   nssm start InfoTechPanel
+   nssm status InfoTechPanel        ← لازم SERVICE_RUNNING
+
+ ⚠ AppDirectory لازم يكون اسم الفولدر بالظبط (أي حرف غلط = الخدمة
+   تقوم وتقفل على طول: SERVICE_STOPPED)
+
+
+----------------------------------------------------------------
+ 6) الدومين (DNS)
+----------------------------------------------------------------
+
+ ⚠ من Zone Editor مش من صفحة Domains/Subdomains
+   (صفحة Domains بتعمل الموقع على سيرفر الاستضافة نفسه، مش على الـ VPS)
+
+ cPanel ← Zone Editor ← Manage قدام infotechcards.org بس ← + Add Record:
+
+   Name: app              Type: A   Record: IP الـ VPS
+   Name: cpanalinfotech   Type: A   Record: IP الـ VPS
+
+ تأكيد (بعد ربع ساعة تقريباً):
+   nslookup app.infotechcards.org
+   nslookup cpanalinfotech.infotechcards.org
+   ← لازم يرجّعوا IP الـ VPS
+
+
+----------------------------------------------------------------
+ 7) فتح 80/443 وإيقاف IIS
+----------------------------------------------------------------
+
+ Firewall (CMD as Administrator):
+   netsh advfirewall firewall add rule name="HTTP 80" dir=in action=allow protocol=TCP localport=80
+   netsh advfirewall firewall add rule name="HTTPS 443" dir=in action=allow protocol=TCP localport=443
+ (ولو شركة الـ VPS عندها Firewall في لوحتها: افتح 80 و443 هناك كمان)
+ ⚠ متفتحش 3306 (MySQL) ولا 3000 ولا 3100 للإنترنت.
+
+ IIS كان ماسك المنفذ 80 (netstat بيظهر PID 4) ← نوقفه نهائياً:
+   net stop W3SVC
+   sc config W3SVC start= disabled
+   net stop WAS
+   sc config WAS start= disabled
+   (فيه مسافة بعد start= )
+
+ تأكيد إن المنافذ فاضية (المفروض ميطلعش حاجة):
+   netstat -ano | findstr ":80 " | findstr LISTENING
+   netstat -ano | findstr ":443 " | findstr LISTENING
+
+
+----------------------------------------------------------------
+ 8) Caddy (الدومين + https)
+----------------------------------------------------------------
+
+ ملف C:\InfoTechApp\tools\Caddyfile
+ (من Notepad: Save As باسم "Caddyfile" بين علامتين، من غير .txt)
+
+   cpanalinfotech.infotechcards.org {
+       @blocked path /.env* /.git* /*.key /*.pem /*.sql /*.rar /*.zip /secrets* /.npmrc /.vscode*
+       respond @blocked 404
+
+       reverse_proxy 127.0.0.1:3100
+   }
+
+   app.infotechcards.org {
+       @blocked path /.env* /.git* /*.key /*.pem /*.sql /*.rar /*.zip /secrets* /.npmrc /.vscode*
+       respond @blocked 404
+
+       reverse_proxy 127.0.0.1:3000
+   }
+
+ (سطور @blocked بترفض روبوتات الإنترنت اللي بتدوّر على ملفات سرية -
+  هتشوفها كتير في الـ log وده طبيعي)
+
+ تجربة أول مرة (يطلّع الشهادة - استنى «certificate obtained successfully»):
+   cd /d C:\InfoTechApp\tools
+   caddy run --config Caddyfile
+   (Ctrl+C بعد التجربة)
+
+ كخدمة:
+   nssm install InfoTechCaddy C:\InfoTechApp\tools\caddy.exe run --config C:\InfoTechApp\tools\Caddyfile
+   nssm set InfoTechCaddy AppDirectory C:\InfoTechApp\tools
+   nssm set InfoTechCaddy AppEnvironmentExtra XDG_DATA_HOME=C:\InfoTechApp\caddy-data
+   nssm set InfoTechCaddy AppStdout C:\InfoTechApp\logs\caddy.log
+   nssm set InfoTechCaddy AppStderr C:\InfoTechApp\logs\caddy.log
+   nssm set InfoTechCaddy AppRotateFiles 1
+   nssm set InfoTechCaddy AppRotateBytes 10485760
+   nssm set InfoTechCaddy Start SERVICE_AUTO_START
+   nssm start InfoTechCaddy
+
+ أي تعديل في Caddyfile بعد كده:
+   nssm restart InfoTechCaddy
+
+ ⚠ بعد ما https يشتغل: مفيش COOKIE_SECURE=false في أي .env
+   (ده كان للتجربة على http بس)
+
+
+----------------------------------------------------------------
+ 9) البرنامج الأساسي (firstapp)
+----------------------------------------------------------------
+
+ ملف C:\InfoTechApp\firstapp\.env (منسوخ من جهازك):
+
+   PANEL_URL="https://cpanalinfotech.infotechcards.org"
+
+   PANEL_DATABASE_URL="<نفس قيمة DATABASE_URL اللي في .env بتاع اللوحة بالظبط>"
+       ⚠ لو السطر ده ناقص، البرنامج يشتغل كقاعدة واحدة ويظهر
+         «إعداد النظام لأول مرة» ← متملاش الشاشة دي أبداً
+
+   PANEL_SECRET_KEY="<نفس اللي في اللوحة حرف بحرف>"
+
+   امسح لو موجودين: COOKIE_SECURE / ZATCA_GATEWAY_DIR / ZATCA_SDK_DIR
+
+ ⚠ متغيّرش: ZATCA_MASTER_KEY (بيفك شهادات الزكاة)
+ ⚠ DATABASE_URL في البرنامج (firstPos) سيبه زي ما هو: مش بيتستخدم وقت
+   التشغيل، بس لازم يكون موجود.
+
+ البناء (من غير db:deploy - قواعد الشركات بتتحدث من اللوحة):
+   cd /d C:\InfoTechApp\firstapp
+   npm ci
+   npm run build
+
+ كخدمة:
+   cd /d C:\InfoTechApp\tools
+   nssm install InfoTechERP "C:\Program Files\nodejs\node.exe" node_modules\next\dist\bin\next start -p 3000
+   nssm set InfoTechERP AppDirectory C:\InfoTechApp\firstapp
+   nssm set InfoTechERP AppStdout C:\InfoTechApp\logs\erp.log
+   nssm set InfoTechERP AppStderr C:\InfoTechApp\logs\erp-error.log
+   nssm set InfoTechERP AppRotateFiles 1
+   nssm set InfoTechERP AppRotateBytes 10485760
+   nssm set InfoTechERP Start SERVICE_AUTO_START
+   nssm start InfoTechERP
+   nssm status InfoTechERP
+
+ حذف خدمة وعملها من الأول (لو احتجت):
+   nssm stop InfoTechERP
+   nssm remove InfoTechERP confirm
+
+ خدمة الزكاة: البرنامج بيشغّلها لوحده عند الحاجة. السطر
+   [zatca-gateway] no branch linked to ZATCA: not started (starts on demand)
+   طبيعي.
+
+
+----------------------------------------------------------------
+ 10) قواعد الشركات
+----------------------------------------------------------------
+
+ أ) اعرف الشركات (Workbench):
+   SELECT code, dbName, dbUser FROM infotechCpanel.companies;
+   (اسم القاعدة واسم المستخدم واحد ← ده طبيعي)
+
+ ب) اعمل القواعد فاضية (Workbench) - لكل شركة:
+   CREATE DATABASE IF NOT EXISTS `dbrestaurant` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+ ج) الاسترجاع - طريقتين:
+
+   1) من اللوحة (الأفضل) - بس للنسخ اللي البرنامج عملها
+      (أول سطر في الملف: -- ERP database backup):
+      - شاشة النسخ الاحتياطي ← كارت الرفع ← اختار الشركة ← ارفع الملف
+        أو حط الملف بإيدك في:
+        C:\InfoTechApp\backups\panel\<كود الشركة>\اسم_انجليزي.sql
+      - زرار الاسترجاع قدام الملف ← اكتب كود الشركة للتأكيد
+      - رسالة «تعذّر تطبيق التحديثات الناقصة» بعد الاسترجاع عادية
+        (الخطوة د بتكمّلها)
+
+   2) من CMD - لملفات Workbench (أولها -- MySQL dump):
+      mysql -u root -p --default-character-set=utf8mb4 dbrestaurant < "C:\InfoTechApp\<الملف>.sql"
+
+ د) مستخدمي الشركات (مهم جداً):
+   الاسترجاع بيرجّع البيانات بس، ومستخدم MySQL بتاع كل شركة مش بيترجع.
+   لكل شركة: اللوحة ← الشركات ← الشركة ← زرار «إصلاح دخول القاعدة» 🔧
+   ← «تم إصلاح مستخدم قاعدة الشركة»
+
+   ⚠ شاشة «تحديث القواعد» مش بتسمح تختار شركة إلا لو ناقصها تحديثات،
+     فلو القواعد محدّثة استخدم «إصلاح دخول القاعدة».
+
+   تأكيد (Workbench) - لازم كل الشركات تظهر على localhost:
+     SELECT user, host FROM mysql.user WHERE user LIKE 'db%';
+
+ هـ) بعدها:
+   nssm restart InfoTechERP
+
+ و) التجربة:
+   https://app.infotechcards.org/c/<كود الشركة>
+   ← شاشة الدخول وعليها اسم الشركة
+
+
+----------------------------------------------------------------
+ 11) تحديث البرنامج بعد كده (أي تعديل جديد)
+----------------------------------------------------------------
+
+ على جهازك:
+   git add ...
+   git commit -m "..."
+   git push
+
+ على السيرفر - اللوحة:
+   cd /d C:\InfoTechApp\CpanalInfoTech
+   git pull
+   npm ci                (لو package.json اتغير بس)
+   npm run db:deploy     (لو فيه migrations جديدة للوحة)
+   npm run build
+   cd /d C:\InfoTechApp\tools
+   nssm restart InfoTechPanel
+
+ على السيرفر - البرنامج:
+   cd /d C:\InfoTechApp\tools
+   nssm stop InfoTechERP
+   cd /d C:\InfoTechApp\firstapp
+   git pull
+   npm ci                (لو package.json اتغير بس)
+   npx prisma generate   ← دايماً (من غيرها: «خطأ في قاعدة البيانات»
+                           في الشاشات الجديدة لو schema.prisma اتغير)
+   npm run build
+   cd /d C:\InfoTechApp\tools
+   nssm start InfoTechERP
+   ← وبعدين من اللوحة: «تحديث القواعد» للشركات (لو فيه migrations جديدة)
+
+ لو خدمة الزكاة اتعدلت: ابنيها على جهازك (publish) وانقل فولدر
+ zatca-gateway\publish للسيرفر، وبعدين nssm restart InfoTechERP.
+
+
+----------------------------------------------------------------
+ 12) مشاكل قابلتنا وحلّها
+----------------------------------------------------------------
+
+ 'charmap' codec can't encode (Workbench Import)
+   ← استرجع من CMD بأداة mysql (القسم 3)
+
+ ERROR 1045 Access denied for user 'root'@'localhost' (CMD بس)
+   ← لغة الكيبورد / رموز في الباسورد ← غيّره من Workbench بـ ALTER USER
+
+ 'SELECT' is not recognized ...
+   ← أوامر SQL مكانها Workbench مش CMD
+
+ nssm: Unexpected status SERVICE_STOPPED
+   ← غالباً AppDirectory غلط (اسم الفولدر)، أو المنفذ مشغول، أو .env
+   ← شوف:  type C:\InfoTechApp\logs\erp-error.log
+   ← أو شغّله يدوياً عشان تشوف الخطأ:
+       cd /d C:\InfoTechApp\firstapp
+       node node_modules\next\dist\bin\next start -p 3000
+
+ المنفذ 80 مشغول (PID 4) ← IIS ← القسم 7
+
+ «ملفات جداول البرنامج الأساسي غير موجودة. أضف ERP_MIGRATIONS_DIR»
+   ← مسار firstapp في .env بتاع اللوحة غلط ← صلّحه ← nssm restart InfoTechPanel
+
+ «تحديثات سابقة فشلت» / Table '...subscription' doesn't exist
+ «قاعدة الشركة تفتقد جداول الاشتراك»
+   ← الاسترجاع اتعمل بنسخة قديمة من اللوحة (قبل إصلاح 2026-11-07)
+   ← حدّث اللوحة (git pull + build + restart) وأعد الاسترجاع،
+     وبعدين «إصلاح دخول القاعدة»
+
+ «قاعدة البيانات لا تستجيب» في شاشة التحديثات
+   ← القاعدة فاضية (الاسترجاع متمش)
+
+ لينك الشركة بيحوّل على localhost
+   ← اتصلّح في الكود (lib/public-url.js في firstapp) - لازم git pull + build
+
+ «إعداد النظام لأول مرة» على app.infotechcards.org
+   ← PANEL_DATABASE_URL ناقص في .env بتاع firstapp - متملاش الشاشة
+
+ Something went wrong ... database may be down
+ + في الـ log: ER_ACCESS_DENIED_ERROR for user 'db...'@'localhost'
+   ← مستخدمي الشركات مش موجودين ← «إصلاح دخول القاعدة» لكل شركة
+
+ حذف نسخة احتياطية من اللوحة وفضلت ظاهرة
+   ← اتصلّح (الملف كان بيفضل مفتوح) - لازم نسخة اللوحة المحدّثة
+
+ سطور في caddy.log فيها /.env.production أو /server.key
+   ← روبوتات بتدوّر على ملفات سرية - طبيعي، ومتصدودة بـ @blocked
+
+
+----------------------------------------------------------------
+ 13) أوامر مفيدة
+----------------------------------------------------------------
+
+ حالة الخدمات:
+   cd /d C:\InfoTechApp\tools
+   nssm status InfoTechPanel
+   nssm status InfoTechERP
+   nssm status InfoTechCaddy
+
+ إعادة تشغيل:
+   nssm restart InfoTechPanel
+   nssm restart InfoTechERP
+   nssm restart InfoTechCaddy
+
+ آخر 40 سطر من log:
+   powershell -command "Get-Content C:\InfoTechApp\logs\erp-error.log -Tail 40"
+   powershell -command "Get-Content C:\InfoTechApp\logs\panel-error.log -Tail 40"
+   powershell -command "Get-Content C:\InfoTechApp\logs\caddy.log -Tail 40"
+
+ مين ماسك منفذ:
+   netstat -ano | findstr ":3000 " | findstr LISTENING
+
+
+----------------------------------------------------------------
+ 14) أمان - لازم يتعمل
+----------------------------------------------------------------
+
+ [ ] غيّر باسورد root في MySQL لباسورد قوي (اتكتب في الشات قبل كده)
+     ALTER USER 'root'@'localhost' IDENTIFIED BY '...';
+     وعدّل أي .env بيستخدمه
+ [ ] غيّر باسورد cpanel_user لباسورد قوي، وعدّله في:
+     DATABASE_URL (اللوحة) و PANEL_DATABASE_URL (firstapp) بنفس القيمة،
+     وبعدين restart للخدمتين
+ [ ] اتأكد إن 3306 مقفول من برّه (Firewall الـ Windows وشركة الـ VPS)
+ [ ] متبعتش أي سطر من .env فيه باسورد في أي شات - امسح الباسورد واكتب ***
+ [ ] خلّي النسخ التلقائي شغال (اللوحة + كل شركة)، وانقل نسخة لبرّه
+     السيرفر كل فترة
+ [ ] المساحة الفاضية على C كانت حوالي 11 جيجا - راقبها
+ [ ] خد نسخة من .env بتوع الاتنين في مكان آمن برّه السيرفر
+     (لو PANEL_SECRET_KEY أو ZATCA_MASTER_KEY ضاعوا مفيش رجوع)
+
+================================================================
