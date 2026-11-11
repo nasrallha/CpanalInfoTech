@@ -374,9 +374,9 @@
    cd /d C:\InfoTechApp\firstapp
    git pull
    npm ci                (لو package.json اتغير بس)
-   npx prisma generate   ← دايماً (من غيرها: «خطأ في قاعدة البيانات»
-                           في الشاشات الجديدة لو schema.prisma اتغير)
-   npm run build
+   npm run build         ← بيعمل prisma generate لوحده قبل البناء
+                           (من غيره: «Unknown field ...» / «خطأ في قاعدة
+                           البيانات» في الشاشات الجديدة لو schema.prisma اتغير)
    cd /d C:\InfoTechApp\tools
    nssm start InfoTechERP
    ← وبعدين من اللوحة: «تحديث القواعد» للشركات (لو فيه migrations جديدة)
