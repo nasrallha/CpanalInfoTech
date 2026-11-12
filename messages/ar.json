@@ -57,6 +57,7 @@
     "UsernamePlaceholder": "أدخل اسم المستخدم"
   },
   "Alerts": {
+    "SelectFiles": "اختر ملفاً واحداً على الأقل",
     "RequiredField": "هذا الحقل مطلوب",
     "TextTooLong": "النص أطول من المسموح",
     "InvalidDate": "تاريخ غير صحيح",
@@ -538,6 +539,7 @@
       "roleTemplate_import": "استيراد قوالب أدوار",
       "roleTemplate_apply": "تطبيق قوالب الأدوار على شركات",
       "backup_run": "نسخ احتياطي لقواعد البيانات",
+      "backup_deleteMany": "حذف مجموعة نسخ احتياطية",
       "backup_delete": "حذف نسخة احتياطية",
       "company_features": "تعديل مميزات شركة",
       "paymentTemplate_create": "إضافة قالب طريقة دفع",
@@ -667,6 +669,16 @@
     "Company": "الشركة"
   },
   "Backups": {
+    "AllOwners": "كل الشركات وقاعدة اللوحة",
+    "DeleteSelected": "حذف المحدد ({n})",
+    "DeleteSelectedConfirm": "حذف {n} ملف نهائياً؟",
+    "KeepLatest": "حذف القديم والإبقاء على آخر نسخة ({n})",
+    "KeepLatestConfirm": "حذف {n} ملف قديم؟",
+    "KeepLatestHint": "تبقى أحدث نسخة لكل شركة ولقاعدة اللوحة",
+    "DeleteAllShown": "حذف الكل ({n})",
+    "DeleteAllConfirm": "حذف كل الملفات المعروضة ({n}) نهائياً؟",
+    "DeleteAllHint": "لن تبقى أي نسخة احتياطية لأي شركة",
+    "DeletedMany": "تم حذف {n} ملف ({size})",
     "Title": "النسخ الاحتياطي لقواعد البيانات",
     "Subtitle": "نسخة من قاعدة شركة أو أكثر، أو جميع الشركات",
     "Note": "هذه نسخ تُنشأ من اللوحة، ملف لكل شركة. أما النسخ التلقائي لكل شركة فيتم من داخل البرنامج نفسه، حسب مواعيدها وفي مجلدها.",

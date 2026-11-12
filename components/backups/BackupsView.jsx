@@ -21,6 +21,7 @@ import {
   CloudDownloadOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
+  ClearOutlined,
   DeleteOutlined,
   HddOutlined,
   RollbackOutlined,
@@ -38,6 +39,7 @@ import {
   backupCompaniesAction,
   backupPanelAction,
   deleteBackupAction,
+  deleteBackupsAction,
   restoreCompanyAction,
   restorePanelAction,
   savePanelBackupScheduleAction,
@@ -96,6 +98,47 @@ export default function BackupsView({ companies, backups, schedule }) {
     const res = await deleteBackupAction({ code: f.code, name: f.name });
     if (!res.success) return showActionError(res, tAlerts);
     message.success(t("Deleted"));
+  };
+
+  // ---------- حذف مجموعة ملفات ----------
+  // فلتر بالشركة (أو قاعدة اللوحة) + تحديد ملفات
+  const [owner, setOwner] = useState(null);
+  const [picked, setPicked] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+  const keyOf = (f) => `${f.code}/${f.name}`;
+  const shown = useMemo(
+    () => (owner ? backups.files.filter((f) => f.code === owner) : backups.files),
+    [backups.files, owner],
+  );
+  // القديم: كل الملفات ما عدا آخر نسخة لكل شركة (الملفات مترتبة الأحدث الأول)
+  const older = useMemo(() => {
+    const seen = new Set();
+    return shown.filter((f) => (seen.has(f.code) ? true : (seen.add(f.code), false)));
+  }, [shown]);
+  const pickedFiles = shown.filter((f) => picked.includes(keyOf(f)));
+  const sizeOf = (list) => fmtSize(list.reduce((s, f) => s + f.size, 0));
+  const ownerOptions = useMemo(() => {
+    const codes = [...new Set(backups.files.map((f) => f.code))];
+    return codes.map((c) => ({
+      value: c,
+      label:
+        c === PANEL ? t("PanelDb") : byCode[c] ? `${c} — ${nm(byCode[c])}` : c,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backups.files, byCode, locale]);
+
+  const removeMany = async (list) => {
+    if (!list.length) return;
+    setDeleting(true);
+    const res = await deleteBackupsAction({
+      files: list.map((f) => ({ code: f.code, name: f.name })),
+    });
+    setDeleting(false);
+    if (!res.success) return showActionError(res, tAlerts);
+    setPicked([]);
+    message.success(
+      t("DeletedMany", { n: res.data.deleted, size: fmtSize(res.data.size) }),
+    );
   };
 
   return (
@@ -206,13 +249,91 @@ export default function BackupsView({ companies, backups, schedule }) {
         />
       </Card>
 
-      <Card size="small" title={t("Files")}>
+      <Card
+        size="small"
+        title={`${t("Files")} (${shown.length} · ${sizeOf(shown)})`}
+      >
+        <div className="cp-filters mb-3">
+          <Space wrap>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              style={{ width: 300, maxWidth: "100%" }}
+              placeholder={t("AllOwners")}
+              value={owner}
+              onChange={(v) => {
+                setOwner(v ?? null);
+                setPicked([]);
+              }}
+              options={ownerOptions}
+            />
+            <Popconfirm
+              title={t("DeleteSelectedConfirm", { n: pickedFiles.length })}
+              okButtonProps={{ danger: true }}
+              onConfirm={() => removeMany(pickedFiles)}
+              disabled={!pickedFiles.length}
+            >
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={deleting}
+                disabled={!pickedFiles.length}
+              >
+                {t("DeleteSelected", { n: pickedFiles.length })}
+                {pickedFiles.length ? ` (${sizeOf(pickedFiles)})` : ""}
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title={t("KeepLatestConfirm", { n: older.length })}
+              description={t("KeepLatestHint")}
+              okButtonProps={{ danger: true }}
+              onConfirm={() => removeMany(older)}
+              disabled={!older.length}
+            >
+              <Button
+                icon={<ClearOutlined />}
+                loading={deleting}
+                disabled={!older.length}
+              >
+                {t("KeepLatest", { n: older.length })}
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title={t("DeleteAllConfirm", { n: shown.length })}
+              description={owner ? undefined : t("DeleteAllHint")}
+              okButtonProps={{ danger: true }}
+              onConfirm={() => removeMany(shown)}
+              disabled={!shown.length}
+            >
+              <Button
+                danger
+                type="primary"
+                icon={<DeleteOutlined />}
+                loading={deleting}
+                disabled={!shown.length}
+              >
+                {t("DeleteAllShown", { n: shown.length })}
+              </Button>
+            </Popconfirm>
+          </Space>
+        </div>
         <Table
           size="small"
-          rowKey={(f) => `${f.code}/${f.name}`}
-          dataSource={backups.files}
+          rowKey={keyOf}
+          dataSource={shown}
           pagination={{ pageSize: 20, hideOnSinglePage: true }}
           scroll={{ x: 800 }}
+          rowSelection={{
+            selectedRowKeys: picked,
+            onChange: (keys) => setPicked(keys),
+            // تحديد كل الملفات (مش الصفحة بس)
+            selections: [
+              Table.SELECTION_ALL,
+              Table.SELECTION_INVERT,
+              Table.SELECTION_NONE,
+            ],
+          }}
           columns={[
             {
               title: t("Company"),

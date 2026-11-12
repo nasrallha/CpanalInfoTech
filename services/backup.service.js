@@ -150,6 +150,26 @@ export async function deletePanelBackup({ code, name }, user) {
   return { ok: true };
 }
 
+// حذف مجموعة ملفات (اللي اتمسح قبل كده بيتعدّى)
+export async function deletePanelBackups({ files }, user) {
+  let deleted = 0;
+  let size = 0;
+  for (const { code, name } of files) {
+    const file = backupFile(code, name);
+    if (!file) continue;
+    try {
+      const st = await fsp.stat(file);
+      await fsp.unlink(file);
+      deleted++;
+      size += st.size;
+    } catch {
+      // مش موجود
+    }
+  }
+  await audit(user, "backup.deleteMany", { details: { deleted, size } });
+  return { deleted, size };
+}
+
 // ============================================================
 // قاعدة اللوحة نفسها
 // ============================================================

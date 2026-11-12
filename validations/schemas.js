@@ -351,6 +351,10 @@ export const deleteBackupSchema = z.object({
   code: backupCode,
   name: backupName,
 });
+// حذف مجموعة ملفات مرة واحدة (المحدد / الكل / القديم)
+export const deleteBackupsSchema = z.object({
+  files: z.array(deleteBackupSchema).min(1, "SelectFiles").max(10000),
+});
 // الاسترجاع: لازم يكتب كود الشركة (أو PANEL للوحة) للتأكيد
 export const restoreCompanySchema = z.object({
   id: idField,

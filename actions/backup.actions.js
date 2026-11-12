@@ -3,6 +3,7 @@ import { runAction } from "@/lib/action";
 import {
   backupCompaniesSchema,
   deleteBackupSchema,
+  deleteBackupsSchema,
   panelBackupScheduleSchema,
   restoreCompanySchema,
   restorePanelSchema,
@@ -11,6 +12,7 @@ import {
   backupCompanies,
   backupPanel,
   deletePanelBackup,
+  deletePanelBackups,
   restoreCompany,
   restorePanel,
   savePanelBackupSchedule,
@@ -28,6 +30,10 @@ export const backupCompaniesAction = async (input) =>
 
 export const deleteBackupAction = async (input) =>
   runAction(deleteBackupSchema, input, (d, u) => deletePanelBackup(d, u), opts);
+
+// حذف مجموعة ملفات (المحدد / الكل / القديم مع الإبقاء على آخر نسخة)
+export const deleteBackupsAction = async (input) =>
+  runAction(deleteBackupsSchema, input, (d, u) => deletePanelBackups(d, u), opts);
 
 // نسخة من قاعدة اللوحة نفسها + مواعيد النسخ التلقائي
 export const backupPanelAction = async () =>

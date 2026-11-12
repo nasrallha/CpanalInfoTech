@@ -57,6 +57,7 @@
     "UsernamePlaceholder": "Enter your username"
   },
   "Alerts": {
+    "SelectFiles": "Select at least one file",
     "RequiredField": "This field is required",
     "TextTooLong": "Text is too long",
     "InvalidDate": "Invalid date",
@@ -538,6 +539,7 @@
       "roleTemplate_import": "Role templates imported",
       "roleTemplate_apply": "Role templates applied to companies",
       "backup_run": "Databases backed up",
+      "backup_deleteMany": "Delete multiple backups",
       "backup_delete": "Backup file deleted",
       "company_features": "Company features updated",
       "paymentTemplate_create": "Add payment template",
@@ -667,6 +669,16 @@
     "Company": "Company"
   },
   "Backups": {
+    "AllOwners": "All companies and the panel database",
+    "DeleteSelected": "Delete selected ({n})",
+    "DeleteSelectedConfirm": "Delete {n} files for good?",
+    "KeepLatest": "Delete old, keep the latest copy ({n})",
+    "KeepLatestConfirm": "Delete {n} old files?",
+    "KeepLatestHint": "The newest copy of each company and of the panel database stays",
+    "DeleteAllShown": "Delete all ({n})",
+    "DeleteAllConfirm": "Delete all shown files ({n}) for good?",
+    "DeleteAllHint": "No backup will remain for any company",
+    "DeletedMany": "{n} files deleted ({size})",
     "Title": "Database backups",
     "Subtitle": "Back up one or more company databases, or all of them",
     "Note": "These are backups you make from the panel, one file per company. Each company's automatic backup stays inside the program, on its own schedule and folder.",
