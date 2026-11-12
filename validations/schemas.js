@@ -360,6 +360,11 @@ export const restoreCompanySchema = z.object({
   id: idField,
   name: backupName,
   confirm: z.string().trim().max(20),
+  // فولدر الملف لو مختلف عن الشركة (نسخة شركة من جهاز تاني / كود مش موجود هنا)
+  from: z
+    .string()
+    .regex(/^[A-Z2-9]{8}$/)
+    .nullish(),
 });
 export const restorePanelSchema = z.object({
   name: backupName,

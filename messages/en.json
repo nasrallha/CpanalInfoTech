@@ -669,6 +669,9 @@
     "Company": "Company"
   },
   "Backups": {
+    "OrphanRestoreHint": "This backup belongs to a company that is not in this panel. Choose the company to restore into: all data in the file (users, invoices, settings...) moves into it, and its subscription and details stay from the panel",
+    "RestoreInto": "Restore into company",
+    "ChooseCompany": "Choose a company",
     "AllOwners": "All companies and the panel database",
     "DeleteSelected": "Delete selected ({n})",
     "DeleteSelectedConfirm": "Delete {n} files for good?",

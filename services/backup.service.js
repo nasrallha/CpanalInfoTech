@@ -329,7 +329,9 @@ async function zatcaChains(cfg) {
   }
 }
 
-export async function restoreCompany({ id, name, confirm }, user) {
+// from: فولدر الملف لو الملف لشركة تانية (مثلاً نسخة من جهاز تاني بكود مش موجود هنا)
+// ← البيانات كلها من الملف، والاشتراك وبيانات الشركة من اللوحة (الشركة المختارة)
+export async function restoreCompany({ id, name, confirm, from }, user) {
   const c = await prisma.company.findUnique({
     where: { id },
     select: {
@@ -347,8 +349,8 @@ export async function restoreCompany({ id, name, confirm }, user) {
       .toUpperCase() !== c.code
   )
     throw new AppError("ConfirmMismatch");
-  const file = backupFile(c.code, name);
-  if (!file) throw new AppError("BackupNotFound");
+  const file = backupFile(from || c.code, name);
+  if (!file || !fs.existsSync(file)) throw new AppError("BackupNotFound");
   const info = await inspectOrThrow(file, ["system_settings", "branches"]);
   const known = readMigrations().map((m) => m.name);
   const newer = sameOrNewer(info.migrations, known);
@@ -432,7 +434,7 @@ export async function restoreCompany({ id, name, confirm }, user) {
     };
     await audit(user, "backup.restore", {
       companyId: c.id,
-      details: { name, safety, migrated, zatcaGap },
+      details: { name, from: from || null, safety, migrated, zatcaGap },
     });
     return result;
   } finally {

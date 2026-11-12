@@ -369,9 +369,10 @@ export default function BackupsView({ companies, backups, schedule }) {
               width: 160,
               render: (_, f) => (
                 <Space>
+                  {/* ملف شركة مش موجودة هنا: الاسترجاع على شركة تختارها */}
                   {(f.code === PANEL
                     ? canRestorePanel
-                    : canRestore && byCode[f.code]) && (
+                    : canRestore && companies.length > 0) && (
                     <Button
                       size="small"
                       icon={<RollbackOutlined />}
@@ -411,6 +412,7 @@ export default function BackupsView({ companies, backups, schedule }) {
         <RestoreModal
           file={restoring}
           company={byCode[restoring.code]}
+          companies={companies}
           onClose={() => setRestoring(null)}
         />
       )}
@@ -604,13 +606,17 @@ function UploadCard({ companies, canRestore, canRestorePanel }) {
 
 // ============================================================
 // تأكيد الاسترجاع: لازم يكتب كود الشركة (أو PANEL للوحة)
+// - ملف لشركة مش موجودة هنا (من جهاز تاني): تختار الشركة اللي يترجع عليها
 // ============================================================
-function RestoreModal({ file, company, onClose }) {
+function RestoreModal({ file, company, companies, onClose }) {
   const t = useTranslations("Backups");
   const tAlerts = useTranslations("Alerts");
   const locale = useLocale();
   const panel = file.code === PANEL;
-  const word = panel ? "PANEL" : file.code;
+  const orphan = !panel && !company;
+  const [targetId, setTargetId] = useState(company?.id ?? null);
+  const target = company ?? companies.find((x) => x.id === targetId);
+  const word = panel ? "PANEL" : (target?.code ?? "");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
@@ -620,9 +626,10 @@ function RestoreModal({ file, company, onClose }) {
     const res = panel
       ? await restorePanelAction({ name: file.name, confirm })
       : await restoreCompanyAction({
-          id: company.id,
+          id: target.id,
           name: file.name,
           confirm,
+          from: orphan ? file.code : null,
         });
     setBusy(false);
     if (!res.success) return showActionError(res, tAlerts);
@@ -654,7 +661,7 @@ function RestoreModal({ file, company, onClose }) {
               danger
               icon={<RollbackOutlined />}
               loading={busy}
-              disabled={confirm.trim().toUpperCase() !== word}
+              disabled={!word || confirm.trim().toUpperCase() !== word}
               onClick={run}
             >
               {t("RestoreNow")}
@@ -667,7 +674,9 @@ function RestoreModal({ file, company, onClose }) {
         <b>
           {panel
             ? t("PanelDb")
-            : `${file.code} — ${company ? (locale === "ar" ? company.arName : company.enName) : ""}`}
+            : orphan
+              ? file.code
+              : `${file.code} — ${locale === "ar" ? company.arName : company.enName}`}
         </b>
         <div className="mono muted">
           <bdi>{file.name}</bdi> ·{" "}
@@ -714,15 +723,38 @@ function RestoreModal({ file, company, onClose }) {
               </ul>
             }
           />
-          <div className="mb-2">{t("TypeToConfirm", { word })}</div>
+          {orphan && (
+            <>
+              <Alert type="info" showIcon className="mb-3" title={t("OrphanRestoreHint")} />
+              <div className="mb-2">{t("RestoreInto")}</div>
+              <Select
+                className="mb-3"
+                showSearch
+                optionFilterProp="label"
+                style={{ width: "100%" }}
+                placeholder={t("ChooseCompany")}
+                value={targetId}
+                onChange={(v) => {
+                  setTargetId(v);
+                  setConfirm("");
+                }}
+                options={companies.map((x) => ({
+                  value: x.id,
+                  label: `${x.code} — ${locale === "ar" ? x.arName : x.enName}`,
+                }))}
+              />
+            </>
+          )}
+          {word && <div className="mb-2">{t("TypeToConfirm", { word })}</div>}
           <Input
             autoFocus
             dir="ltr"
             className="mono"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
+            disabled={!word}
             onPressEnter={() =>
-              confirm.trim().toUpperCase() === word && !busy && run()
+              word && confirm.trim().toUpperCase() === word && !busy && run()
             }
           />
         </>
