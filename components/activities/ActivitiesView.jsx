@@ -204,7 +204,7 @@ export default function ActivitiesView({ activities, modules = [] }) {
                 tooltip={t("StaffTitleHint")}
               >
                 <Select
-                  options={["technician", "staff", "barber", "therapist"].map(
+                  options={["technician", "staff", "barber", "therapist", "tailor"].map(
                     (v) => ({ value: v, label: t(`StaffTitle_${v}`) }),
                   )}
                 />

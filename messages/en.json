@@ -421,6 +421,7 @@
     "StaffTitle_technician": "Technician",
     "StaffTitle_staff": "Staff",
     "StaffTitle_barber": "Barber",
+    "StaffTitle_tailor": "Tailor",
     "StaffTitle_therapist": "Therapist",
     "CompaniesCount": "{n, plural, =0 {No companies} one {1 company} other {# companies}}"
   },

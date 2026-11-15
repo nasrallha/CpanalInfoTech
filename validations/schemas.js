@@ -94,7 +94,7 @@ const activityFields = {
   modules: z.array(z.string().max(40)).max(100).default([]),
   // اسم مقدم الخدمة (فني / عاملة / حلاق / معالج) - null = فني
   staffTitle: z
-    .enum(["technician", "staff", "barber", "therapist"])
+    .enum(["technician", "staff", "barber", "therapist", "tailor"])
     .nullable()
     .default(null),
   // صورة شاشة الدخول للنشاط

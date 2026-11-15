@@ -421,6 +421,7 @@
     "StaffTitle_technician": "الفني / الفنيون",
     "StaffTitle_staff": "العاملة / العاملات",
     "StaffTitle_barber": "الحلاق / الحلاقون",
+    "StaffTitle_tailor": "الخياط / الخياطون",
     "StaffTitle_therapist": "المعالج / المعالجون",
     "CompaniesCount": "{n, plural, =0 {لا توجد شركات} one {شركة واحدة} two {شركتان} few {# شركات} many {# شركة} other {# شركة}}"
   },
