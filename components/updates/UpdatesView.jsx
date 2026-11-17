@@ -66,7 +66,8 @@ export default function UpdatesView({ migrations, companies, missing }) {
       })),
     [companies, target],
   );
-  const canSelect = (r) => r.ok && !r.failed && r.toApply.length > 0;
+  // الشركة اللي فيها تحديث سابق فشل: تتختار عشان يتعاد (السيرفر بيعلّمه متراجَع عنه ويعيده)
+  const canSelect = (r) => r.ok && (r.failed || r.toApply.length > 0);
   const selectable = rows.filter(canSelect).map((r) => r.id);
   const chosen = selected.filter((id) => selectable.includes(id));
 
