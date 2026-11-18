@@ -7,6 +7,7 @@ import {
   setRequestLocale,
 } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import AntdProvider from "@/components/common/AntdProvider";
@@ -24,7 +25,17 @@ const mainFont = IBM_Plex_Sans_Arabic({
 export async function generateMetadata({ params }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Common" });
-  return { title: t("AppName") };
+  // أيقونة التبويب = شعار المؤسسة (InfoTech) من الإعدادات ← وقت الطلب مش وقت البناء
+  await connection();
+  let icon = null;
+  try {
+    const { getSettings } = await import("@/services/settings.service");
+    const logo = (await getSettings()).vendorLogo;
+    if (logo) icon = `/api/uploads/${logo}`;
+  } catch {
+    // القاعدة واقفة: من غير أيقونة
+  }
+  return { title: t("AppName"), ...(icon ? { icons: { icon, apple: icon } } : {}) };
 }
 
 export function generateStaticParams() {
