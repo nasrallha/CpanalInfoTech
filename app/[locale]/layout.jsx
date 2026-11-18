@@ -31,11 +31,12 @@ export async function generateMetadata({ params }) {
   try {
     const { getSettings } = await import("@/services/settings.service");
     const logo = (await getSettings()).vendorLogo;
-    if (logo) icon = `/api/uploads/${logo}`;
+    // دايرة (نفس شكل اللوجو في البرنامج) - v = اسم الملف ← الشعار الجديد من غير كاش قديم
+    if (logo) icon = `/api/app-icon?v=${encodeURIComponent(logo.split("/").pop())}`;
   } catch {
     // القاعدة واقفة: من غير أيقونة
   }
-  return { title: t("AppName"), ...(icon ? { icons: { icon, apple: icon } } : {}) };
+  return { title: t("AppName"), ...(icon ? { icons: { icon } } : {}) };
 }
 
 export function generateStaticParams() {
