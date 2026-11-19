@@ -649,7 +649,7 @@ export async function syncCompany(id) {
         featureOverrides: true,
         moduleOverrides: true,
         blockedPermissions: true,
-        activity: { select: { modules: true, staffTitle: true } },
+        activity: { select: { modules: true, staffTitle: true, background: true } },
         maxUsers: true,
         maxBranches: true,
         maxInvoicesMonth: true,
@@ -701,6 +701,8 @@ export async function syncCompany(id) {
     modules: effectiveModules(c.activity, c.moduleOverrides),
     // اسم مقدم الخدمة (ثابت للنشاط)
     staffTitle: c.activity?.staffTitle ?? null,
+    // صورة شاشة الدخول (صورة النشاط) ← بتتغيّر عند الشركة مع تعديل النشاط أو الشركة
+    loginImage: c.activity?.background ?? null,
     // حدود الشركة لو متحددة، وإلا حدود الباقة
     maxUsers: pick(c.maxUsers, c.plan?.maxUsers),
     maxBranches: pick(c.maxBranches, c.plan?.maxBranches),
