@@ -41,12 +41,15 @@ import DangerZone from "./DangerZone";
 import FeaturesTab from "./FeaturesTab";
 import CompanyLocks from "./CompanyLocks";
 import CompanyIdentityFields from "./CompanyIdentityFields";
+import { serialLabel } from "@/lib/company-serial";
+import { useRouter } from "@/i18n/routing";
 import { addMonths, today, formatDateTime } from "@/lib/dates";
 import { planAmount } from "@/lib/plan-price";
 import { formatMoney, moneyInputProps } from "@/lib/money";
 import {
   changePlanAction,
   companyStatusAction,
+  convertTrialAction,
   migrateCompanyAction,
   syncCompanyAction,
   renewCompanyAction,
@@ -103,7 +106,7 @@ export default function CompanyDetails({
   // ---------- البيانات ----------
   const overview = (
     <Descriptions bordered size="small" column={{ xs: 1, md: 2 }}>
-      <Descriptions.Item label={t("Serial")}>{c.serialNo}</Descriptions.Item>
+      <Descriptions.Item label={t("Serial")}>{serialLabel(c)}</Descriptions.Item>
       <Descriptions.Item label={t("Code")}>
         <Space>
           <b className="mono">{c.code}</b>
@@ -366,11 +369,18 @@ export default function CompanyDetails({
         title={nm(c)}
         subtitle={
           <span>
-            #{c.serialNo} · <span className="mono">{c.code}</span> ·{" "}
+            #{serialLabel(c)} · <span className="mono">{c.code}</span> ·{" "}
             <StateTag sub={c.sub} />
+            {c.isTrial && (
+              <Tag className="cp-chip" style={{ marginInlineStart: 8 }}>
+                {t("TrialTag")}
+              </Tag>
+            )}
           </span>
         }
       />
+      {/* شركة تجريبية: تحويلها لحقيقية (رقم حقيقي جديد وبياناتها زي ما هي) */}
+      {c.isTrial && <TrialBanner c={c} can={can} t={t} tAlerts={tAlerts} />}
       {!c.provisionedAt && (
         <Alert
           type="warning"
@@ -382,6 +392,42 @@ export default function CompanyDetails({
       )}
       <Tabs items={items} />
     </>
+  );
+}
+
+// ---------- شركة تجريبية: تنبيه + تحويل لحقيقية ----------
+function TrialBanner({ c, can, t, tAlerts }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const convert = async () => {
+    setBusy(true);
+    const res = await convertTrialAction({ id: c.id });
+    setBusy(false);
+    if (!res.success) return showActionError(res, tAlerts);
+    message.success(t("TrialConverted", { serial: res.data.serialNo }));
+    warnSync(res.data, t);
+    router.refresh();
+  };
+  return (
+    <Alert
+      type="info"
+      showIcon
+      className="mb-4"
+      title={t("TrialBanner")}
+      action={
+        can("companies.edit") && (
+          <Popconfirm
+            title={t("ConvertTrialConfirm")}
+            okText={t("ConvertTrial")}
+            onConfirm={convert}
+          >
+            <Button type="primary" loading={busy}>
+              {t("ConvertTrial")}
+            </Button>
+          </Popconfirm>
+        )
+      }
+    />
   );
 }
 

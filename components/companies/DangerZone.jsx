@@ -60,7 +60,8 @@ export default function DangerZone({ company: c }) {
           onClose={() => setMode(null)}
           onDone={() => {
             setMode(null);
-            if (mode === "company") router.replace("/companies");
+            if (mode === "company")
+              router.replace(c.isTrial ? "/trial-companies" : "/companies");
           }}
         />
       )}

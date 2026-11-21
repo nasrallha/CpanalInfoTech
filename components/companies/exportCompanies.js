@@ -2,6 +2,8 @@
 // تصدير الشركات (بعد الفلتر) لملف Excel
 // exceljs بيتحمّل وقت الضغط بس (مش مع الصفحة)
 // ============================================================
+import { serialLabel } from "@/lib/company-serial";
+
 export async function exportCompaniesExcel(rows, { t, ts, locale, nm }) {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
@@ -34,7 +36,7 @@ export async function exportCompaniesExcel(rows, { t, ts, locale, nm }) {
   ];
   for (const c of rows) {
     ws.addRow({
-      serial: c.serialNo,
+      serial: serialLabel(c),
       code: c.code,
       ar: c.arName,
       en: c.enName,

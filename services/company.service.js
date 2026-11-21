@@ -20,6 +20,7 @@ import { subscriptionState } from "@/lib/subscription";
 import { getSettings, vendorPayload } from "./settings.service";
 import { audit } from "./audit.service";
 import { erpModuleCatalog } from "@/lib/erp-meta";
+import { TRIAL_SERIAL_BASE } from "@/lib/company-serial";
 
 // ============================================================
 // الشركات (العملاء)
@@ -32,6 +33,7 @@ import { erpModuleCatalog } from "@/lib/erp-meta";
 const listSelect = {
   id: true,
   serialNo: true,
+  isTrial: true,
   code: true,
   arName: true,
   enName: true,
@@ -68,9 +70,11 @@ const withState = (c, settings) => ({
   sub: subscriptionState(c, settings),
 });
 
-export async function getCompanies() {
+// trial: الشركات التجريبية (تاب لوحدها) / الحقيقية
+export async function getCompanies({ trial = false } = {}) {
   const [rows, settings] = await Promise.all([
     prisma.company.findMany({
+      where: { isTrial: trial },
       orderBy: { serialNo: "desc" },
       select: listSelect,
     }),
@@ -180,6 +184,45 @@ export async function suggestCompanyCode() {
   return { code, dbName: `${settings.dbPrefix}${code.toLowerCase()}` };
 }
 
+// رقم العميل اللي عليه الدور: الحقيقية (أقل من TRIAL_SERIAL_BASE) / التجريبية (أكبر منه)
+async function nextSerial(tx, isTrial) {
+  const last = await tx.company.aggregate({
+    where: isTrial
+      ? { serialNo: { gt: TRIAL_SERIAL_BASE } }
+      : { serialNo: { lte: TRIAL_SERIAL_BASE } },
+    _max: { serialNo: true },
+  });
+  return (last._max.serialNo ?? (isTrial ? TRIAL_SERIAL_BASE : 0)) + 1;
+}
+
+// تحويل شركة تجريبية لحقيقية: بياناتها وقاعدتها زي ما هي + رقم حقيقي جديد
+// والسماح / القراءة فقط يرجعوا للإعدادات العامة
+export async function convertTrialCompany({ id }, user) {
+  const c = await prisma.company.findUnique({
+    where: { id },
+    select: { id: true, isTrial: true, arName: true, serialNo: true },
+  });
+  if (!c) throw new AppError("NotFound");
+  if (!c.isTrial) throw new AppError("NotTrial");
+  const updated = await withSerialRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const serialNo = await nextSerial(tx, false);
+      const row = await tx.company.update({
+        where: { id },
+        data: { isTrial: false, serialNo, graceDays: null, readonlyDays: null },
+        select: { id: true, serialNo: true },
+      });
+      await audit(user, "company.convertTrial", {
+        companyId: id,
+        details: { name: c.arName, serialNo },
+        db: tx,
+      });
+      return row;
+    }),
+  );
+  return { ...updated, ...(await trySync(id)) };
+}
+
 // إعادة المحاولة لو رقم العميل اتاخد في نفس اللحظة (عمود فريد)
 async function withSerialRetry(fn, tries = 3) {
   for (let i = 1; ; i++) {
@@ -232,13 +275,15 @@ export async function createCompany(data, user) {
   }
 
   // رقم العميل الجديد = أكبر رقم + 1 (لو اتنين اتعملوا في نفس اللحظة: نعيد المحاولة)
+  // التجريبية: ترقيم لوحدها (T1, T2 ...) مش من أرقام الشركات الحقيقية
+  const isTrial = Boolean(data.isTrial);
   const company = await withSerialRetry(() =>
     prisma.$transaction(async (tx) => {
-      const last = await tx.company.aggregate({ _max: { serialNo: true } });
-      const serialNo = (last._max.serialNo ?? 0) + 1;
+      const serialNo = await nextSerial(tx, isTrial);
       const created = await tx.company.create({
         data: {
           serialNo,
+          isTrial,
           code,
           arName: data.arName,
           enName: data.enName,
@@ -261,8 +306,9 @@ export async function createCompany(data, user) {
           maxBranches: data.maxBranches,
           maxInvoicesMonth: data.maxInvoicesMonth,
           maxProducts: data.maxProducts,
-          graceDays: data.graceDays,
-          readonlyDays: data.readonlyDays,
+          // التجريبية: من غير سماح ولا قراءة فقط ← بتتقفل أول ما المدة تخلص
+          graceDays: isTrial ? 0 : data.graceDays,
+          readonlyDays: isTrial ? 0 : data.readonlyDays,
           startsAt: dayToDate(data.startsAt),
           endsAt: dayToDate(data.endsAt),
           status: "pending",
@@ -467,6 +513,7 @@ export async function getUpdatesOverview() {
     select: {
       id: true,
       serialNo: true,
+      isTrial: true,
       code: true,
       arName: true,
       enName: true,
@@ -642,6 +689,7 @@ export async function syncCompany(id) {
       select: {
         code: true,
         serialNo: true,
+        isTrial: true,
         status: true,
         suspendReason: true,
         dbName: true,
@@ -690,7 +738,8 @@ export async function syncCompany(id) {
   const pick = (own, fromPlan) => own ?? fromPlan ?? null;
   const sub = {
     companyCode: c.code,
-    companySerial: c.serialNo,
+    // التجريبية: من غير رقم عميل (رقمها T في اللوحة بس)
+    companySerial: c.isTrial ? null : c.serialNo,
     status: c.status,
     suspendReason: c.suspendReason ?? null,
     planArName: c.plan?.arName ?? null,

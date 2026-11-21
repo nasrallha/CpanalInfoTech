@@ -17,6 +17,7 @@ import {
   TimePicker,
   Upload,
 } from "antd";
+import { serialLabel } from "@/lib/company-serial";
 import {
   CloudDownloadOutlined,
   CloudUploadOutlined,
@@ -223,7 +224,7 @@ export default function BackupsView({ companies, backups, schedule }) {
             onChange: (keys) => setSelected(keys),
           }}
           columns={[
-            { title: "#", dataIndex: "serialNo", width: 60 },
+            { title: "#", dataIndex: "serialNo", width: 60, render: (_, c) => serialLabel(c) },
             {
               title: t("Code"),
               dataIndex: "code",

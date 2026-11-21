@@ -139,6 +139,9 @@ model Company {
   // رقم العميل (1، 2، 3...): الرقم اللي بيظهر في اللوحة، مستقل عن id
   // الجديد = أكبر رقم موجود + 1 (لو اتحذفت كل الشركات يبدأ من 1 تاني)
   serialNo    Int       @unique
+  // شركة تجريبية (تاب لوحدها): ترقيم لوحدها من TRIAL_SERIAL_BASE (بتظهر T1, T2 ...)
+  // ومش بتاخد من سيريالات الشركات الحقيقية - التحويل لحقيقية بياخد الرقم اللي عليه الدور
+  isTrial     Boolean   @default(false)
   code        String    @unique @db.VarChar(16)
   arName      String    @db.VarChar(150)
   enName      String    @db.VarChar(150)
@@ -224,6 +227,7 @@ model Company {
   @@index([endsAt])
   @@index([planId])
   @@index([activityId])
+  @@index([isTrial])
   @@map("companies")
 }
 

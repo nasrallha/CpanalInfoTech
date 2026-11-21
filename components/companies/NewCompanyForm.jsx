@@ -54,6 +54,8 @@ export default function NewCompanyForm({
   defaults,
   suggested,
   erpUrl,
+  // شركة تجريبية: مدة بالأيام، من غير مبلغ ولا سماح / قراءة فقط
+  trial = false,
 }) {
   const t = useTranslations("Companies");
   const tAlerts = useTranslations("Alerts");
@@ -64,6 +66,15 @@ export default function NewCompanyForm({
   const [result, setResult] = useState(null);
   const nm = (x) => (locale === "ar" ? x.arName : x.enName);
   const start = today();
+  const listHref = trial ? "/trial-companies" : "/companies";
+  // التجريبية: أسبوعين افتراضياً
+  const firstEnd = trial
+    ? dayjs(start).add(14, "day")
+    : dayjs(addMonths(start, 12));
+  const setEndDays = (days) => {
+    const s = form.getFieldValue("startsAt") ?? dayjs(start);
+    form.setFieldsValue({ endsAt: dayjs(s).add(days, "day") });
+  };
 
   // المبلغ أوتوماتيك من سعر الباقة والمدة (ويتعدّل بإيدك)
   const calcAmount = (v) =>
@@ -87,6 +98,8 @@ export default function NewCompanyForm({
     const res = await createCompanyAction({
       ...values,
       code: suggested.code,
+      isTrial: trial,
+      ...(trial ? { amount: null, graceDays: null, readonlyDays: null } : {}),
       startsAt: toDay(values.startsAt),
       endsAt: toDay(values.endsAt),
     });
@@ -176,7 +189,7 @@ export default function NewCompanyForm({
           <Button icon={<ShopOutlined />} onClick={() => router.refresh()}>
             {t("New")}
           </Button>
-          <Link href="/companies">
+          <Link href={listHref}>
             <Button>{t("BackToList")}</Button>
           </Link>
         </Space>
@@ -193,7 +206,7 @@ export default function NewCompanyForm({
   return (
     <>
       <PageHeader
-        title={t("New")}
+        title={t(trial ? "NewTrial" : "New")}
         subtitle={
           <span>
             {t("Code")}: <b className="mono">{suggested.code}</b>
@@ -201,7 +214,7 @@ export default function NewCompanyForm({
         }
         extra={
           <>
-            <Link href="/companies">
+            <Link href={listHref}>
               <Button>{t("Cancel")}</Button>
             </Link>
             <Button
@@ -216,6 +229,9 @@ export default function NewCompanyForm({
           </>
         }
       />
+      {trial && (
+        <Alert type="info" showIcon className="mb-3" title={t("TrialNote")} />
+      )}
       <Form
         form={form}
         name="newCompany"
@@ -233,13 +249,15 @@ export default function NewCompanyForm({
             form.setFieldValue("amount", calcAmount(all));
         }}
         initialValues={{
-          amount: calcAmount({
-            planId: plans[0]?.id ?? null,
-            startsAt: dayjs(start),
-            endsAt: dayjs(addMonths(start, 12)),
-          }),
+          amount: trial
+            ? null
+            : calcAmount({
+                planId: plans[0]?.id ?? null,
+                startsAt: dayjs(start),
+                endsAt: firstEnd,
+              }),
           startsAt: dayjs(start),
-          endsAt: dayjs(addMonths(start, 12)),
+          endsAt: firstEnd,
           planId: plans[0]?.id ?? null,
           dbName: suggested.dbName,
           adminUsername: "admin",
@@ -330,15 +348,17 @@ export default function NewCompanyForm({
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    name="amount"
-                    label={t("Amount")}
-                    tooltip={t("AmountAutoHint")}
-                  >
-                    <InputNumber {...moneyInputProps} />
-                  </Form.Item>
-                </Col>
+                {!trial && (
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="amount"
+                      label={t("Amount")}
+                      tooltip={t("AmountAutoHint")}
+                    >
+                      <InputNumber {...moneyInputProps} />
+                    </Form.Item>
+                  </Col>
+                )}
                 <Col xs={12}>
                   <Form.Item
                     name="startsAt"
@@ -364,11 +384,17 @@ export default function NewCompanyForm({
               </Row>
               <Space wrap size={4} className="mb-3">
                 <span className="muted">{t("QuickPeriod")}:</span>
-                {[1, 3, 6, 12, 24].map((m) => (
-                  <Button key={m} size="small" onClick={() => setEnd(m)}>
-                    {t("Months", { n: m })}
-                  </Button>
-                ))}
+                {trial
+                  ? [3, 7, 14, 30].map((d) => (
+                      <Button key={d} size="small" onClick={() => setEndDays(d)}>
+                        {t("Days", { n: d })}
+                      </Button>
+                    ))
+                  : [1, 3, 6, 12, 24].map((m) => (
+                      <Button key={m} size="small" onClick={() => setEnd(m)}>
+                        {t("Months", { n: m })}
+                      </Button>
+                    ))}
               </Space>
               <Row gutter={12}>
                 {[
@@ -376,8 +402,8 @@ export default function NewCompanyForm({
                   "maxBranches",
                   "maxInvoicesMonth",
                   "maxProducts",
-                  "graceDays",
-                  "readonlyDays",
+                  // التجريبية: بتتقفل أول ما المدة تخلص (من غير سماح ولا قراءة فقط)
+                  ...(trial ? [] : ["graceDays", "readonlyDays"]),
                 ].map((f) => (
                   <Col xs={12} sm={8} key={f}>
                     <Form.Item

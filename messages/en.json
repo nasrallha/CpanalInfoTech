@@ -31,7 +31,8 @@
     "RoleTemplates": "Role templates",
     "Backups": "Backups",
     "PaymentTemplates": "Payment templates",
-    "SalesChannels": "Delivery apps"
+    "SalesChannels": "Delivery apps",
+    "TrialCompanies": "Trial companies"
   },
   "Auth": {
     "Title": "Control Panel",
@@ -136,7 +137,8 @@
     "RestoreRollbackFailed": "Restore failed and rollback failed; restore the safety copy manually: {safety}",
     "ConfirmMismatch": "Confirmation text does not match",
     "UploadFailed": "Upload failed",
-    "InvalidTime": "Invalid time"
+    "InvalidTime": "Invalid time",
+    "NotTrial": "The company is not a trial"
   },
   "States": {
     "pending": "Being set up",
@@ -353,7 +355,16 @@
     "FollowActivity": "Per activity",
     "ModulesNote": "Modules come from the company's activity; you can enable or disable a module for this company only",
     "ModulesNoActivity": "No activity is set for this company; only modules enabled here are active",
-    "InfoSyncFailed": "Saved in the panel, but the company data inside the app could not be updated"
+    "InfoSyncFailed": "Saved in the panel, but the company data inside the app could not be updated",
+    "TrialTitle": "Trial companies",
+    "NewTrial": "New trial company",
+    "Days": "{n} days",
+    "TrialNote": "Trial company: its own numbering (T1, T2…) separate from real companies, and it closes as soon as its period ends, with no grace period",
+    "TrialTag": "Trial",
+    "TrialBanner": "This is a trial company; when the client subscribes, convert it to a real company to get a customer number and move to the companies list with all its data",
+    "ConvertTrial": "Convert to a real company",
+    "ConvertTrialConfirm": "Convert this trial company to a real company with a new customer number?",
+    "TrialConverted": "Converted to a real company, number {serial}"
   },
   "Plans": {
     "Title": "Plans",
@@ -556,7 +567,8 @@
       "backup_schedule": "Panel backup schedule",
       "backup_restore": "Company database restore",
       "backup_restorePanel": "Panel database restore",
-      "backup_upload": "Backup upload"
+      "backup_upload": "Backup upload",
+      "company_convertTrial": "Trial company converted to real"
     }
   },
   "Settings": {
@@ -624,7 +636,10 @@
     "Status_pending": "Pending",
     "Status_suspended": "Suspended",
     "Status_cancelled": "Cancelled",
-    "Status_active": "Active"
+    "Status_active": "Active",
+    "KindReal": "Companies",
+    "KindTrial": "Trial",
+    "KindAll": "All"
   },
   "RoleTemplates": {
     "AppliedSkipped": "Applied to {n} companies; {skipped} customized roles were kept unchanged",

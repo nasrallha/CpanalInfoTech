@@ -12,6 +12,7 @@ import {
   CarOutlined,
   IdcardOutlined,
   DashboardOutlined,
+  ExperimentOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -35,6 +36,13 @@ const LINKS = [
     href: "/companies",
     key: "Companies",
     icon: <ShopOutlined />,
+    perm: "companies.view",
+  },
+  // الشركات التجريبية (تاب لوحدها)
+  {
+    href: "/trial-companies",
+    key: "TrialCompanies",
+    icon: <ExperimentOutlined />,
     perm: "companies.view",
   },
   {

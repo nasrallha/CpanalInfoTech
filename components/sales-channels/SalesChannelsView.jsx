@@ -33,6 +33,7 @@ import {
   saveCompanyChannelsAction,
   updateSalesChannelAction,
 } from "@/actions/sales-channel.actions";
+import { serialLabel } from "@/lib/company-serial";
 
 const MARKUP_TYPES = ["percent", "amount"];
 
@@ -346,7 +347,7 @@ function CompanyChannelsModal({ channels, companies, onClose }) {
     () =>
       companies.map((c) => ({
         value: c.id,
-        label: `${c.serialNo} · ${c.code} — ${nm(c)}`,
+        label: `${serialLabel(c)} · ${c.code} — ${nm(c)}`,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [companies, locale],

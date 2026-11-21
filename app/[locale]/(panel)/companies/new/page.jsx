@@ -10,10 +10,12 @@ import NewCompanyForm from "@/components/companies/NewCompanyForm";
 import NoAccess from "@/components/common/NoAccess";
 import Loading from "@/components/common/Loading";
 
-async function Content({ params }) {
+async function Content({ searchParams }) {
   const { allowed } = await getPageAccess("companies.create");
   if (!allowed) return <NoAccess />;
   await connection();
+  // ?trial=1 ← شركة تجريبية
+  const trial = (await searchParams)?.trial === "1";
   const [plans, activities, settings, suggested] = await Promise.all([
     getActivePlans(),
     getActiveActivities(),
@@ -22,7 +24,8 @@ async function Content({ params }) {
   ]);
   return (
     <NewCompanyForm
-      key={suggested.code}
+      key={`${suggested.code}${trial ? "-t" : ""}`}
+      trial={trial}
       plans={plans}
       activities={activities}
       defaults={{

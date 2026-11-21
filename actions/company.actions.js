@@ -15,6 +15,7 @@ import {
 } from "@/validations/schemas";
 import {
   changePlan,
+  convertTrialCompany,
   createCompany,
   deleteCompany,
   deleteCompanyDb,
@@ -46,6 +47,12 @@ export const updateCompanyAction = async (input) =>
     refresh: true,
   });
 
+// تحويل شركة تجريبية لحقيقية (رقم حقيقي جديد، وبياناتها زي ما هي)
+export const convertTrialAction = async (input) =>
+  runAction(idSchema, input, (d, u) => convertTrialCompany(d, u), {
+    permission: "companies.edit",
+    refresh: true,
+  });
 export const renewCompanyAction = async (input) =>
   runAction(renewSchema, input, (d, u) => renewCompany(d, u), {
     permission: "companies.renew",

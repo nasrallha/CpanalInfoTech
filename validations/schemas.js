@@ -191,6 +191,8 @@ export const createCompanySchema = z
     amount: z.number().min(0).max(10_000_000).nullish(),
     // true = تجهيز القاعدة فوراً، false = تتسجل بس ("pending") والقاعدة بعدين
     provisionNow: z.boolean().optional().default(false),
+    // شركة تجريبية (ترقيم لوحدها، وبتتقفل أول ما المدة تخلص)
+    isTrial: z.boolean().optional().default(false),
   })
   .refine((d) => d.endsAt >= d.startsAt, {
     message: "EndBeforeStart",

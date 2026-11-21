@@ -6,11 +6,13 @@ import {
   Button,
   Card,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
   Tag,
 } from "antd";
+import { serialLabel } from "@/lib/company-serial";
 import { DatabaseOutlined } from "@ant-design/icons";
 import { useLocale, useTranslations } from "next-intl";
 import PageHeader from "@/components/common/PageHeader";
@@ -51,6 +53,8 @@ export default function UpdatesView({ migrations, companies, missing }) {
   const [selected, setSelected] = useState([]);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState(null);
+  // الشركات: الحقيقية / التجريبية (جرّب التحديث على التجريبي الأول) / الكل
+  const [kind, setKind] = useState("real");
 
   // التحديثات اللي هتتطبق على كل شركة لحد التحديث المختار
   const targetIdx = migrations.indexOf(upTo);
@@ -60,11 +64,13 @@ export default function UpdatesView({ migrations, companies, missing }) {
   );
   const rows = useMemo(
     () =>
-      companies.map((c) => ({
-        ...c,
-        toApply: c.ok ? c.pending.filter((m) => target.has(m)) : [],
-      })),
-    [companies, target],
+      companies
+        .filter((c) => kind === "all" || (kind === "trial") === Boolean(c.isTrial))
+        .map((c) => ({
+          ...c,
+          toApply: c.ok ? c.pending.filter((m) => target.has(m)) : [],
+        })),
+    [companies, target, kind],
   );
   // الشركة اللي فيها تحديث سابق فشل: تتختار عشان يتعاد (السيرفر بيعلّمه متراجَع عنه ويعيده)
   const canSelect = (r) => r.ok && (r.failed || r.toApply.length > 0);
@@ -98,6 +104,18 @@ export default function UpdatesView({ migrations, companies, missing }) {
 
       <Card size="small" className="mb-4">
         <Space wrap align="center">
+          <Segmented
+            value={kind}
+            onChange={(v) => {
+              setKind(v);
+              setSelected([]);
+            }}
+            options={[
+              { value: "real", label: t("KindReal") },
+              { value: "trial", label: t("KindTrial") },
+              { value: "all", label: t("KindAll") },
+            ]}
+          />
           <span>{t("UpTo")}:</span>
           <Select
             style={{ minWidth: 320 }}
@@ -188,7 +206,7 @@ export default function UpdatesView({ migrations, companies, missing }) {
           ),
         }}
         columns={[
-          { title: "#", dataIndex: "serialNo", width: 70 },
+          { title: "#", dataIndex: "serialNo", width: 70, render: (_, c) => serialLabel(c) },
           {
             title: t("Code"),
             dataIndex: "code",

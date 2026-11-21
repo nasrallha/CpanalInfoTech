@@ -15,8 +15,10 @@ import { useAuth } from "@/components/common/AuthProvider";
 import { SUB_STATES } from "@/lib/subscription";
 import { formatDateTime } from "@/lib/dates";
 import { exportCompaniesExcel } from "./exportCompanies";
+import { serialLabel } from "@/lib/company-serial";
 
-export default function CompaniesView({ companies }) {
+// trial: شاشة الشركات التجريبية (العنوان وزرار الإضافة)
+export default function CompaniesView({ companies, trial = false }) {
   const t = useTranslations("Companies");
   const ts = useTranslations("States");
   const locale = useLocale();
@@ -68,7 +70,7 @@ export default function CompaniesView({ companies }) {
             c.city,
             c.taxNo,
             c.idNumber,
-            String(c.serialNo),
+            serialLabel(c),
           ]
             .filter(Boolean)
             .some((v) => v.toLowerCase().includes(s))),
@@ -87,7 +89,7 @@ export default function CompaniesView({ companies }) {
   return (
     <>
       <PageHeader
-        title={t("Title")}
+        title={t(trial ? "TrialTitle" : "Title")}
         subtitle={
           rows.length === companies.length
             ? t("Count", { n: companies.length })
@@ -104,9 +106,9 @@ export default function CompaniesView({ companies }) {
               {t("ExportExcel")}
             </Button>
             {can("companies.create") && (
-              <Link href="/companies/new">
+              <Link href={trial ? "/companies/new?trial=1" : "/companies/new"}>
                 <Button type="primary" icon={<PlusOutlined />}>
-                  {t("New")}
+                  {t(trial ? "NewTrial" : "New")}
                 </Button>
               </Link>
             )}
@@ -171,7 +173,7 @@ export default function CompaniesView({ companies }) {
         scroll={{ x: 1000 }}
         pagination={{ pageSize: 25, showSizeChanger: false }}
         columns={[
-          { title: "#", dataIndex: "serialNo", width: 70 },
+          { title: "#", dataIndex: "serialNo", width: 70, render: (_, c) => serialLabel(c) },
           {
             title: t("Company"),
             render: (_, c) => (
